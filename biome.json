@@ -2,7 +2,14 @@
   "$schema": "https://biomejs.dev/schemas/2.6.8/schema.json",
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": {
-    "includes": ["**", "!!**/dist", "!src/data/table.ts", "!data/bs-calendar.json"]
+    "includes": [
+      "**",
+      "!!**/dist",
+      "!src/data/table.ts",
+      "!data/bs-calendar.json",
+      "!test/fixtures/shadcn-calendar*.tsx",
+      "!playground"
+    ]
   },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 120 },
   "linter": { "enabled": true, "rules": { "preset": "recommended" } },

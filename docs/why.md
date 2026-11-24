@@ -71,11 +71,13 @@ answer "which fiscal period is this date in?" and "which days does this period c
 - ES modules and CommonJS builds, TypeScript types included, and it runs in Node.js, browsers, Deno,
   Bun and edge runtimes.
 
-### A calendar UI is coming
+### A calendar in the components you already use
 
-A BS calendar for [react-day-picker](https://daypicker.dev), and through it the
-[shadcn/ui](https://ui.shadcn.com) Calendar, is planned under `nepali-day-picker/react`. It will be
-built on this same core, so the dates your app stores today will work with it unchanged.
+`nepali-day-picker/react` makes [react-day-picker](https://daypicker.dev), and the
+[shadcn/ui](https://ui.shadcn.com) Calendar built on it, lay out BS months, without forking either.
+Selection, ranges, dropdowns, keyboard navigation and accessibility all keep working, and a
+`"bs-ad"` or `"ad-bs"` variant shows both calendars' dates in each cell. In shadcn it is a one-import
+change. See the [calendar guide](react.md).
 
 ## Data accuracy
 
@@ -116,4 +118,5 @@ Yes. Remember that "today" on a UTC server is not always today in Nepal; see
 [Today in Nepal on a server](guides.md#today-in-nepal-on-a-server).
 
 **Does it need React?**
-No. The core works anywhere JavaScript runs. React support will be an optional extra.
+No. The core works anywhere JavaScript runs. React and react-day-picker are optional, needed only for
+`nepali-day-picker/react`.

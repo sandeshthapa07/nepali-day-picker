@@ -13,6 +13,8 @@ Conventions used throughout:
 - BS months are numbered **1–12** (Baisakh = 1). Weekdays are **0–6** (Sunday = 0), as in `Date#getDay`.
 - The supported range is **BS 1970-01-01 to BS 2100-12-31** (AD 1913-04-13 to AD 2044-04-13).
 
+The calendar components (`nepali-day-picker/react`) are documented in the [calendar guide](react.md).
+
 Contents: [Conversion](#conversion) · [Formatting](#formatting) · [Parsing](#parsing) ·
 [Fiscal year](#fiscal-year) · [Weeks](#weeks) · [Names and digits](#names-and-digits) · [Types](#types)
 

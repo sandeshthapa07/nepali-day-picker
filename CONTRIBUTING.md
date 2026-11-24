@@ -22,15 +22,16 @@ npm install
 npm test
 ```
 
-| Command                           | What it does                                    |
-| --------------------------------- | ----------------------------------------------- |
-| `npm test`                        | Runs the tests in your time zone                |
-| `npm run test:tz`                 | Runs the tests once in each of seven time zones |
-| `npm run typecheck`               | Type-checks the source and tests                |
-| `npm run lint` / `npm run format` | Checks / fixes formatting and lint with Biome   |
-| `npm run build`                   | Builds `dist/` with tsup                        |
-| `npm run size`                    | Builds and checks the bundle-size budget        |
-| `npm run check`                   | Everything above, as CI runs it                 |
+| Command                           | What it does                                           |
+| --------------------------------- | ------------------------------------------------------ |
+| `npm test`                        | Runs the tests in your time zone                       |
+| `npm run test:tz`                 | Runs the tests once in each of seven time zones        |
+| `npm run test:rdp`                | Runs the calendar tests on react-day-picker 9.7 and 10 |
+| `npm run typecheck`               | Type-checks the source and tests                       |
+| `npm run lint` / `npm run format` | Checks / fixes formatting and lint with Biome          |
+| `npm run build`                   | Builds `dist/` with tsup                               |
+| `npm run size`                    | Builds and checks the bundle-size budget               |
+| `npm run check`                   | Everything above, as CI runs it                        |
 
 ## Project layout
 
@@ -39,6 +40,9 @@ data/bs-calendar.json   month lengths for each BS year: the source of truth
 data/SOURCES.md         where the data came from, and how sure it is
 scripts/build-data.mjs  encodes the JSON into src/data/table.ts
 src/core/               converter, formatting, parsing, fiscal year, weeks, names, digits
+src/date-lib/           BS date library for react-day-picker (nepali-day-picker/date-lib)
+src/react/              DayPicker, useNepaliCalendar and helpers (nepali-day-picker/react)
+playground/             a page to see every calendar variant in a browser
 src/index.ts            the public API
 test/                   Vitest tests
 docs/                   user guides and API reference
@@ -52,6 +56,16 @@ docs/                   user guides and API reference
    it is out of date.
 4. Add a golden test in `test/convert.test.ts` for the corrected date, naming its source.
 5. Note the change and its source in `data/SOURCES.md`.
+
+## See the calendar in a browser
+
+```sh
+npm run build
+npx serve .        # or any static server, from the repository root
+```
+
+Open `/playground/` for every variant in react-day-picker's and shadcn's styling, or
+`/playground/?view=readme` for the README screenshot.
 
 ## Pull requests
 

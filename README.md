@@ -1,19 +1,22 @@
 # nepali-day-picker
 
 Bikram Sambat (BS, विक्रम संवत्) ↔ Gregorian (AD) date conversion, formatting, parsing and Nepal
-fiscal-year helpers for JavaScript and TypeScript.
+fiscal-year helpers for JavaScript and TypeScript, plus a BS calendar for react-day-picker and shadcn/ui.
 
 - **Accurate:** a month-length table for BS 1970–2100, cross-checked against five other packages, with
   a round-trip test over every one of its ~47,800 days.
 - **Plain `Date` values:** you store, send and validate ordinary JavaScript `Date`s; BS is only how
   they are read and written.
 - **Nepali and English:** Devanagari or ASCII digits and names, everyday or formal month spellings.
-- **Small and dependency-free:** about 5 kB minified and brotli-compressed for everything, 1.8 kB for
-  just `adToBs` and `bsToAd`. ESM and CommonJS, with TypeScript types. Tree-shakeable.
+- **Small and dependency-free:** about 5 kB minified and brotli-compressed for the core, 1.8 kB for
+  just `adToBs` and `bsToAd`, and 5 kB for the calendar on top of react-day-picker. ESM and CommonJS,
+  with TypeScript types. Tree-shakeable.
 - **Time-zone safe:** tested in seven time zones, including Asia/Kathmandu (UTC+5:45).
 
-> A BS calendar for [react-day-picker](https://daypicker.dev) and [shadcn/ui](https://ui.shadcn.com)
-> is planned for a later release under `nepali-day-picker/react`. This release is the core library.
+- **A calendar for react-day-picker and shadcn/ui:** BS months in the calendar you already use, with
+  four display modes, in `nepali-day-picker/react`.
+
+![Three shadcn calendars: a Nepali BS month, a BS month with AD days underneath, and an AD month with BS days underneath](https://raw.githubusercontent.com/sandeshthapa07/nepali-day-picker/main/docs/images/calendars.png)
 
 ## Install
 
@@ -40,9 +43,30 @@ getFiscalYear(new Date(2025, 6, 17)); // 2082, i.e. FY 2082/83
 formatFiscalYear(2082, { prefix: true }); // "आ.व. २०८२/८३"
 ```
 
+## Calendar (React)
+
+```sh
+npm install nepali-day-picker react-day-picker
+```
+
+```tsx
+import { DayPicker } from "nepali-day-picker/react";
+import "react-day-picker/style.css";
+
+<DayPicker mode="single" selected={date} onSelect={setDate} variant="bs-ad" lang="ne" />;
+```
+
+`variant` is `"bs"` (default), `"bs-ad"`, `"ad-bs"` or `"ad"`. The selected value is a plain `Date`.
+
+**shadcn/ui:** in `components/ui/calendar.tsx`, import from `nepali-day-picker/react` instead of
+`react-day-picker` and delete the default `formatMonthDropdown`. Your `<Calendar />` then takes the same
+props. To avoid editing the file, spread `useNepaliCalendar({ DayButton: CalendarDayButton })` into it.
+See the [calendar guide](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/docs/react.md).
+
 ## Documentation
 
 - [Getting started](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/docs/getting-started.md): install, convert, format and parse in five minutes
+- [Calendar for react-day-picker and shadcn/ui](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/docs/react.md): variants, props, shadcn setup, a date picker
 - [Guides and recipes](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/docs/guides.md): forms, Zod, databases and APIs, servers in UTC, fiscal-year reports, a BS month grid
 - [API reference](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/docs/api.md): every function, option and token
 - [Why nepali-day-picker](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/docs/why.md): benefits, data accuracy, limits and FAQ
@@ -204,6 +228,7 @@ Pacific/Kiritimati, Pacific/Apia, Pacific/Pago_Pago and UTC. Where a time zone s
 npm install
 npm test           # unit tests in your time zone
 npm run test:tz    # the suite once per test time zone
+npm run test:rdp   # the calendar tests on react-day-picker 9.7 and 10
 npm run check      # data table, types, lint, all time zones, size budget
 npm run data       # rebuild src/data/table.ts after editing data/bs-calendar.json
 ```

@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>nepali-day-picker playground</title>
+    <!--
+      Run `npm run build`, then serve the repository root (for example `npx serve .`) and open
+      /playground/. React loads from esm.sh, react-day-picker's own ESM files from jsDelivr, and this package from ../dist.
+    -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/react-day-picker@9.14.0/src/style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.3"></script>
+    <style type="text/tailwindcss">
+      @theme inline {
+        --color-background: var(--background);
+        --color-foreground: var(--foreground);
+        --color-primary: var(--primary);
+        --color-primary-foreground: var(--primary-foreground);
+        --color-accent: var(--accent);
+        --color-accent-foreground: var(--accent-foreground);
+        --color-muted-foreground: var(--muted-foreground);
+        --color-border: var(--border);
+        --color-input: var(--input);
+        --color-ring: var(--ring);
+        --color-popover: var(--popover);
+      }
+      :root {
+        --background: oklch(1 0 0);
+        --foreground: oklch(0.145 0 0);
+        --primary: oklch(0.205 0 0);
+        --primary-foreground: oklch(0.985 0 0);
+        --accent: oklch(0.97 0 0);
+        --accent-foreground: oklch(0.205 0 0);
+        --muted-foreground: oklch(0.556 0 0);
+        --border: oklch(0.922 0 0);
+        --input: oklch(0.922 0 0);
+        --ring: oklch(0.708 0 0);
+        --popover: oklch(1 0 0);
+      }
+      body { font-family: system-ui, "Noto Sans Devanagari", sans-serif; }
+      .ndp-saturday { color: #dc2626; }
+    </style>
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "https://esm.sh/react@19.3.1",
+          "react/jsx-runtime": "https://esm.sh/react@19.3.1/jsx-runtime",
+          "react-dom/client": "https://esm.sh/react-dom@19.3.1/client?external=react",
+          "react-day-picker": "https://cdn.jsdelivr.net/npm/react-day-picker@9.14.0/dist/esm/index.js",
+          "date-fns": "https://esm.sh/date-fns@4.1.0",
+          "date-fns/locale": "https://esm.sh/date-fns@4.1.0/locale",
+          "@date-fns/tz": "https://esm.sh/@date-fns/tz@1.4.1"
+        }
+      }
+    </script>
+  </head>
+  <body class="bg-background text-foreground p-6">
+    <div id="root"></div>
+    <script type="module">
+      import { createElement as h, useState } from "react";
+      import { createRoot } from "react-dom/client";
+      import { bsToAd } from "../dist/index.js";
+      import { DayPicker, getDefaultClassNames } from "../dist/react.js";
+
+      const cn = (...c) => c.filter(Boolean).join(" ");
+      const month = bsToAd(2082, 1, 1);
+      const today = bsToAd(2082, 1, 12);
+
+      // shadcn/ui's Calendar (new-york-v4) classes, with its Button reduced to the ghost variant.
+      const ghost =
+        "inline-flex items-center justify-center rounded-md text-sm font-medium hover:bg-accent hover:text-accent-foreground disabled:opacity-50";
+      function ShadcnDayButton({ className, day, modifiers, ...props }) {
+        return h("button", {
+          ...props,
+          "data-selected-single": modifiers.selected && !modifiers.range_start && !modifiers.range_end && !modifiers.range_middle,
+          "data-range-start": modifiers.range_start,
+          "data-range-end": modifiers.range_end,
+          "data-range-middle": modifiers.range_middle,
+          className: cn(
+            ghost,
+            "flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 leading-none font-normal data-[range-end=true]:rounded-md data-[range-end=true]:bg-primary data-[range-end=true]:text-primary-foreground data-[range-middle=true]:rounded-none data-[range-middle=true]:bg-accent data-[range-start=true]:rounded-md data-[range-start=true]:bg-primary data-[range-start=true]:text-primary-foreground data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground [&>span]:text-xs [&>span]:opacity-70",
+            className,
+          ),
+        });
+      }
+      function ShadcnCalendar({ className, ...props }) {
+        const d = getDefaultClassNames();
+        return h(DayPicker, {
+          showOutsideDays: true,
+          className: cn("bg-background p-3 [--cell-size:--spacing(8)] rounded-lg border", className),
+          classNames: {
+            root: cn("w-fit", d.root),
+            months: cn("relative flex flex-col gap-4 md:flex-row", d.months),
+            month: cn("flex w-full flex-col gap-4", d.month),
+            nav: cn("absolute inset-x-0 top-0 flex w-full items-center justify-between gap-1", d.nav),
+            button_previous: cn(ghost, "size-(--cell-size) p-0", d.button_previous),
+            button_next: cn(ghost, "size-(--cell-size) p-0", d.button_next),
+            month_caption: cn("flex h-(--cell-size) w-full items-center justify-center px-(--cell-size)", d.month_caption),
+            caption_label: cn("font-medium select-none text-sm", d.caption_label),
+            month_grid: cn("w-full border-collapse", d.month_grid),
+            weekdays: cn("flex", d.weekdays),
+            weekday: cn("flex-1 rounded-md text-[0.8rem] font-normal text-muted-foreground select-none", d.weekday),
+            week: cn("mt-2 flex w-full", d.week),
+            day: cn("relative aspect-square h-full w-full p-0 text-center select-none", d.day),
+            range_start: cn("rounded-l-md bg-accent", d.range_start),
+            range_middle: cn("rounded-none", d.range_middle),
+            range_end: cn("rounded-r-md bg-accent", d.range_end),
+            today: cn("rounded-md bg-accent text-accent-foreground", d.today),
+            outside: cn("text-muted-foreground", d.outside),
+            disabled: cn("text-muted-foreground opacity-50", d.disabled),
+            hidden: cn("invisible", d.hidden),
+          },
+          components: { DayButton: ShadcnDayButton },
+          ...props,
+        });
+      }
+
+      function Card({ title, children }) {
+        return h("figure", { className: "flex flex-col gap-2" }, h("figcaption", { className: "text-xs text-muted-foreground font-mono" }, title), children);
+      }
+
+      // ?view=readme: the three calendars shown in the README.
+      function Readme() {
+        const [single, setSingle] = useState(today);
+        const [range, setRange] = useState({ from: bsToAd(2082, 1, 5), to: bsToAd(2082, 1, 9) });
+        return h(
+          "section",
+          { className: "flex gap-8 items-start" },
+          h(Card, { title: 'variant="bs" lang="ne"' }, h(ShadcnCalendar, { month, today, mode: "single", selected: single, onSelect: setSingle })),
+          h(Card, { title: 'variant="bs-ad" lang="ne"' }, h(ShadcnCalendar, { month, today, variant: "bs-ad", className: "[--cell-size:--spacing(10)]", mode: "range", selected: range, onSelect: setRange })),
+          h(Card, { title: 'variant="ad-bs" lang="en"' }, h(ShadcnCalendar, { month: new Date(2025, 3, 1), today, variant: "ad-bs", lang: "en", className: "[--cell-size:--spacing(10)]", mode: "single", selected: single, onSelect: setSingle })),
+        );
+      }
+
+      function App() {
+        if (new URLSearchParams(location.search).get("view") === "readme") return h(Readme);
+        const [single, setSingle] = useState(today);
+        const [range, setRange] = useState({ from: bsToAd(2082, 1, 5), to: bsToAd(2082, 1, 9) });
+        const common = { month, today };
+        return h(
+          "div",
+          { className: "flex flex-col gap-8" },
+          h("h1", { className: "text-lg font-semibold" }, "nepali-day-picker"),
+          h("section", { className: "flex flex-wrap gap-8" },
+            h(Card, { title: 'react-day-picker styles · variant="bs" lang="ne"' }, h(DayPicker, { ...common, mode: "single", selected: single, onSelect: setSingle })),
+            h(Card, { title: 'variant="bs-ad" lang="ne"' }, h(DayPicker, { ...common, variant: "bs-ad", mode: "single", selected: single, onSelect: setSingle })),
+            h(Card, { title: 'variant="ad-bs" lang="en"' }, h(DayPicker, { month: new Date(2025, 3, 1), today, variant: "ad-bs", lang: "en", mode: "single", selected: single, onSelect: setSingle })),
+            h(Card, { title: 'variant="bs" lang="en" captionLayout="dropdown"' }, h(DayPicker, { ...common, lang: "en", captionLayout: "dropdown", mode: "single", selected: single, onSelect: setSingle })),
+          ),
+          h("section", { className: "flex flex-wrap gap-8" },
+            h(Card, { title: 'shadcn styles · variant="bs-ad" lang="ne"' }, h(ShadcnCalendar, { ...common, variant: "bs-ad", mode: "single", selected: single, onSelect: setSingle })),
+            h(Card, { title: 'shadcn · bs-ad, --cell-size: --spacing(10)' }, h(ShadcnCalendar, { ...common, variant: "bs-ad", className: "[--cell-size:--spacing(10)]", mode: "range", selected: range, onSelect: setRange })),
+            h(Card, { title: 'shadcn · variant="bs" lang="en"' }, h(ShadcnCalendar, { ...common, lang: "en", mode: "single", selected: single, onSelect: setSingle })),
+            h(Card, { title: 'shadcn · variant="ad-bs" lang="ne"' }, h(ShadcnCalendar, { month: new Date(2025, 3, 1), today, variant: "ad-bs", mode: "single", selected: single, onSelect: setSingle })),
+          ),
+        );
+      }
+
+      // The README view shows shadcn styling only, as in a shadcn app: drop react-day-picker's stylesheet.
+      if (new URLSearchParams(location.search).get("view") === "readme") {
+        document.querySelector('link[href*="react-day-picker"]')?.remove();
+      }
+      createRoot(document.getElementById("root")).render(h(App));
+    </script>
+  </body>
+</html>

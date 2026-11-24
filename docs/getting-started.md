@@ -87,6 +87,26 @@ formatFiscalYear(2082, { prefix: true }); // "आ.व. २०८२/८३"
 getFiscalPeriodRange(2082); // { start: 17 July 2025, end: 16 July 2026 }
 ```
 
+## 7. Show a calendar (React)
+
+```sh
+npm install react-day-picker
+```
+
+```tsx
+import { useState } from "react";
+import { DayPicker } from "nepali-day-picker/react";
+import "react-day-picker/style.css";
+
+export function PickADay() {
+  const [date, setDate] = useState<Date>();
+  return <DayPicker mode="single" selected={date} onSelect={setDate} variant="bs-ad" />;
+}
+```
+
+Using shadcn/ui? Change one import in `components/ui/calendar.tsx`; the
+[calendar guide](react.md) shows how.
+
 ## Three rules to remember
 
 1. **Your values stay ordinary `Date`s.** BS is only how dates are shown and typed, so forms,
@@ -97,4 +117,5 @@ getFiscalPeriodRange(2082); // { start: 17 July 2025, end: 16 July 2026 }
    and formatting throw a `RangeError`, and parsing returns `null`. BS 2084 onward is projected;
    see [Data accuracy](why.md#data-accuracy).
 
-Next: [Guides and recipes](guides.md) for forms, databases, reports and calendars.
+Next: [Guides and recipes](guides.md) for forms, databases and reports, and the
+[calendar guide](react.md) for react-day-picker and shadcn/ui.

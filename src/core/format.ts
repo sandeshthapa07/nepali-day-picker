@@ -1,4 +1,4 @@
-import { adToBs } from "./convert";
+import { adToBs, type BsDate } from "./convert";
 import { toNepaliDigits } from "./digits";
 import { AD_MONTHS, BS_MONTHS, WEEKDAYS } from "./names";
 import { type Calendar, type Lang, type Pattern, resolvePattern, type Token, tokenize } from "./pattern";
@@ -33,6 +33,18 @@ function ordinal(n: number): string {
  * Use it for long lists and tables; `formatBs` and `formatAd` are the one-off versions.
  */
 export function createFormatter(options: FormatterOptions): (date: Date) => string {
+  return createFormatterWith(options, adToBs, getBsWeek);
+}
+
+/**
+ * createFormatter with the BS conversion swapped in. The calendar UI passes a conversion that never
+ * throws, so a grid can show the few days just outside the data table. Not part of the public API.
+ */
+export function createFormatterWith(
+  options: FormatterOptions,
+  toBs: (date: Date) => BsDate,
+  bsWeek: (date: Date) => number,
+): (date: Date) => string {
   const { calendar = "bs", lang = "ne", monthNames = "common", pattern } = options;
   const parts = tokenize(resolvePattern(pattern));
   const nepaliDigits = pattern !== "iso" && (options.digits ?? lang) === "ne";
@@ -50,7 +62,7 @@ export function createFormatter(options: FormatterOptions): (date: Date) => stri
     let month: number;
     let day: number;
     if (calendar === "bs") {
-      ({ year, month, day } = adToBs(date));
+      ({ year, month, day } = toBs(date));
     } else {
       if (Number.isNaN(date.getTime())) throw new RangeError("Invalid Date");
       year = date.getFullYear();
@@ -90,7 +102,7 @@ export function createFormatter(options: FormatterOptions): (date: Date) => stri
           return weekdays.long[weekday];
         case "w":
         case "ww":
-          week ||= calendar === "bs" ? getBsWeek(date) : getAdWeek(date);
+          week ||= calendar === "bs" ? bsWeek(date) : getAdWeek(date);
           return num(token === "ww" ? pad(week, 2) : String(week));
       }
     };

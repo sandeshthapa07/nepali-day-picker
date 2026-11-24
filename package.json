@@ -1,6 +1,6 @@
 {
   "name": "nepali-day-picker",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Bikram Sambat (BS, Nepali) <-> Gregorian (AD) date conversion, formatting, parsing and Nepal fiscal-year helpers. No dependencies.",
   "keywords": [
     "nepali",

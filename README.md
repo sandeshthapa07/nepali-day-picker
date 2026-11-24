@@ -40,6 +40,14 @@ getFiscalYear(new Date(2025, 6, 17)); // 2082, i.e. FY 2082/83
 formatFiscalYear(2082, { prefix: true }); // "आ.व. २०८२/८३"
 ```
 
+## Documentation
+
+- [Getting started](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/docs/getting-started.md): install, convert, format and parse in five minutes
+- [Guides and recipes](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/docs/guides.md): forms, Zod, databases and APIs, servers in UTC, fiscal-year reports, a BS month grid
+- [API reference](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/docs/api.md): every function, option and token
+- [Why nepali-day-picker](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/docs/why.md): benefits, data accuracy, limits and FAQ
+- [Contributing](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/CONTRIBUTING.md): report a wrong date, set up, release
+
 ## Basics
 
 - BS months are numbered 1–12, Baisakh = 1.

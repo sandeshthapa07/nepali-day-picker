@@ -1,0 +1,95 @@
+{
+  "name": "nepali-day-picker",
+  "version": "0.1.0",
+  "description": "Bikram Sambat (BS, Nepali) <-> Gregorian (AD) date conversion, formatting, parsing and Nepal fiscal-year helpers. No dependencies.",
+  "keywords": [
+    "nepali",
+    "nepal",
+    "bikram-sambat",
+    "bs",
+    "vikram-samvat",
+    "nepali-date",
+    "date-converter",
+    "calendar",
+    "fiscal-year",
+    "devanagari",
+    "react-day-picker",
+    "shadcn"
+  ],
+  "homepage": "https://github.com/sandeshthapa07/nepali-day-picker#readme",
+  "bugs": {
+    "url": "https://github.com/sandeshthapa07/nepali-day-picker/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sandeshthapa07/nepali-day-picker.git"
+  },
+  "license": "MIT",
+  "author": "Sandesh Thapa",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "data/bs-calendar.json",
+    "data/SOURCES.md",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:tz": "node scripts/test-tz.mjs",
+    "typecheck": "tsc -p .",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "size": "npm run build && size-limit",
+    "data": "node scripts/build-data.mjs",
+    "data:check": "node scripts/build-data.mjs --check",
+    "check": "npm run data:check && npm run typecheck && npm run lint && npm run test:tz && npm run size",
+    "prepublishOnly": "npm run check"
+  },
+  "size-limit": [
+    {
+      "name": "full core (ESM)",
+      "path": "dist/index.js",
+      "limit": "6 kB"
+    },
+    {
+      "name": "adToBs + bsToAd only",
+      "path": "dist/index.js",
+      "import": "{ adToBs, bsToAd }",
+      "limit": "2 kB"
+    }
+  ],
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.8",
+    "@size-limit/preset-small-lib": "^14.3.0",
+    "@types/node": "^26.6.6",
+    "size-limit": "^14.3.0",
+    "tsup": "^9.0.0",
+    "typescript": "^6.0.3",
+    "vitest": "^5.1.1"
+  }
+}

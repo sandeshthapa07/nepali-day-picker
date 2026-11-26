@@ -1,7 +1,7 @@
 {
   "name": "nepali-day-picker",
-  "version": "0.2.0",
-  "description": "Bikram Sambat (BS, Nepali) <-> Gregorian (AD) date conversion, formatting, parsing and Nepal fiscal-year helpers, plus a BS calendar for react-day-picker and shadcn/ui.",
+  "version": "0.3.0",
+  "description": "Bikram Sambat (BS, Nepali) <-> Gregorian (AD) date conversion, formatting, parsing, Nepal fiscal-year helpers and public holidays, a calendar grid for any framework, and a BS calendar for react-day-picker and shadcn/ui.",
   "keywords": [
     "nepali",
     "nepal",
@@ -17,7 +17,12 @@
     "shadcn",
     "nepali-calendar",
     "date-picker",
-    "react"
+    "react",
+    "nepal-holidays",
+    "public-holidays",
+    "events",
+    "calendar-grid",
+    "framework-agnostic"
   ],
   "homepage": "https://github.com/sandeshthapa07/nepali-day-picker#readme",
   "bugs": {
@@ -52,6 +57,16 @@
         "default": "./dist/date-lib.cjs"
       }
     },
+    "./holidays": {
+      "import": {
+        "types": "./dist/holidays.d.ts",
+        "default": "./dist/holidays.js"
+      },
+      "require": {
+        "types": "./dist/holidays.d.cts",
+        "default": "./dist/holidays.cjs"
+      }
+    },
     "./react": {
       "import": {
         "types": "./dist/react.d.ts",
@@ -62,6 +77,7 @@
         "default": "./dist/react.cjs"
       }
     },
+    "./holidays.json": "./data/holidays.json",
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",
@@ -70,6 +86,7 @@
   "files": [
     "dist",
     "data/bs-calendar.json",
+    "data/holidays.json",
     "data/SOURCES.md",
     "CHANGELOG.md"
   ],
@@ -99,7 +116,7 @@
     "typecheck": "tsc -p .",
     "lint": "biome check .",
     "format": "biome check --write .",
-    "size": "npm run build && size-limit",
+    "size": "npm run build && size-limit && node scripts/check-entries.mjs",
     "data": "node scripts/build-data.mjs",
     "data:check": "node scripts/build-data.mjs --check",
     "check": "npm run data:check && npm run typecheck && npm run lint && npm run test:tz && npm run test:rdp && npm run size",
@@ -119,6 +136,12 @@
       "limit": "2 kB"
     },
     {
+      "name": "core: getBsMonthGrid, for any framework",
+      "path": "dist/index.js",
+      "import": "{ getBsMonthGrid }",
+      "limit": "2.5 kB"
+    },
+    {
       "name": "date-lib: createBsDateLib (react-day-picker not counted)",
       "path": "dist/date-lib.js",
       "import": "{ createBsDateLib }",
@@ -131,7 +154,12 @@
       "limit": "4.5 kB"
     },
     {
-      "name": "react: DayPicker (react and react-day-picker not counted)",
+      "name": "holidays: everything, with the BS 2083 data",
+      "path": "dist/holidays.js",
+      "limit": "4.5 kB"
+    },
+    {
+      "name": "react: DayPicker, with the holiday data (react and react-day-picker not counted)",
       "path": "dist/react.js",
       "import": "{ DayPicker }",
       "ignore": [
@@ -140,7 +168,19 @@
         "react/jsx-runtime",
         "react-day-picker"
       ],
-      "limit": "6 kB"
+      "limit": "8.5 kB"
+    },
+    {
+      "name": "react: useNepaliCalendar, for shadcn (react and react-day-picker not counted)",
+      "path": "dist/react.js",
+      "import": "{ useNepaliCalendar }",
+      "ignore": [
+        "react",
+        "react-dom",
+        "react/jsx-runtime",
+        "react-day-picker"
+      ],
+      "limit": "7.75 kB"
     }
   ],
   "devDependencies": {

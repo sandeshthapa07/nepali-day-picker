@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { bsToAd, formatBs, parseAd, parseBs } from "../src";
-import { ymd } from "./helpers";
+import { withProjectedDates, ymd } from "./helpers";
 
 const ref = { referenceDate: new Date(2026, 10, 24) }; // BS 2083
 const expected = "2025-04-25"; // 12 Baisakh 2082
@@ -59,7 +59,10 @@ describe("parseBs", () => {
 
   it("resolves YY to the nearest supported year", () => {
     expect(parsed(parseBs("12/01/82", "DD/MM/YY", ref))).toBe(expected);
-    expect(parsed(parseBs("01/01/99", "DD/MM/YY", ref))).toBe(ymd(bsToAd(2099, 1, 1)));
+    expect(parseBs("01/01/99", "DD/MM/YY", ref)).toBeNull(); // BS 2099 is projected
+    withProjectedDates(() => {
+      expect(parsed(parseBs("01/01/99", "DD/MM/YY", ref))).toBe(ymd(bsToAd(2099, 1, 1)));
+    });
     expect(parsed(parseBs("01/01/75", "DD/MM/YY", { referenceDate: new Date(1950, 0, 1) }))).toBe(
       ymd(bsToAd(1975, 1, 1)),
     );
@@ -70,6 +73,8 @@ describe("parseBs", () => {
     expect(parseBs("01/13/2082", "DD/MM/YYYY")).toBeNull();
     expect(parseBs("00/01/2082", "DD/MM/YYYY")).toBeNull();
     expect(parseBs("01/01/2101", "DD/MM/YYYY")).toBeNull();
+    expect(parseBs("01/01/2084", "DD/MM/YYYY")).toBeNull(); // projected
+    expect(withProjectedDates(() => parseBs("01/01/2084", "DD/MM/YYYY"))).not.toBeNull();
     expect(parseBs("01/01/1969", "DD/MM/YYYY")).toBeNull();
   });
 

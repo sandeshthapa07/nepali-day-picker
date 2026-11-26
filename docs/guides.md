@@ -13,7 +13,7 @@ JavaScript standard library unless it says otherwise.
 - [Fiscal-year reports and filters](#fiscal-year-reports-and-filters)
 - [Build a BS month grid](#build-a-bs-month-grid)
 - [Month and weekday dropdowns](#month-and-weekday-dropdowns)
-- [Warn about projected dates](#warn-about-projected-dates)
+- [Handle future (projected) dates](#handle-future-projected-dates)
 
 ## Show today's date in Nepali
 
@@ -191,25 +191,120 @@ school year that starts on Baisakh 1.
 
 ## Build a BS month grid
 
-For a custom calendar view, the grid is a few lines. Weeks start on Sunday, as Nepali calendars do.
+`getBsMonthGrid` returns a BS month as plain data, so any framework can render a calendar: Vue, Svelte,
+Angular, Solid, plain DOM or a server template. It has no dependencies, like the rest of the core.
+(React users have a ready-made calendar in `nepali-day-picker/react`.)
 
 ```ts
-import { bsToAd, getBsMonthLength } from "nepali-day-picker";
+import { getBsMonthGrid } from "nepali-day-picker";
 
-/** Weeks of a BS month, Sunday first. Empty cells before day 1 and after the last day are null. */
-function bsMonthGrid(year: number, month: number): (Date | null)[][] {
-  const first = bsToAd(year, month, 1);
-  const cells: (Date | null)[] = Array(first.getDay()).fill(null);
-  for (let day = 1; day <= getBsMonthLength(year, month); day++) cells.push(bsToAd(year, month, day));
-  while (cells.length % 7 !== 0) cells.push(null);
-  return Array.from({ length: cells.length / 7 }, (_, week) => cells.slice(week * 7, week * 7 + 7));
-}
-
-bsMonthGrid(2082, 1); // 5 weeks; Baisakh 1 2082 is a Monday, so the first cell is null
+const grid = getBsMonthGrid(2083, 8); // Mangsir 2083
+grid.weekdays; // [0, 1, 2, 3, 4, 5, 6]: column order, Sunday first
+grid.weeks; // 5 or 6 weeks of 7 days
+grid.weeks[0][0];
+// { date, bs: { year, month, day }, ad: { year, month, day }, weekday, outside, inRange,
+//   today, saturday, holiday, events }
+grid.previous; // { year: 2083, month: 7 }, or null at the start of the range
+grid.next; // { year: 2083, month: 9 }, or null at the end of the confirmed data
 ```
 
-Label the header with `WEEKDAYS.ne.short` and each cell with `formatBs(date, "D")`. Saturday
-(`date.getDay() === 6`) is the weekly holiday.
+| Field of a day        | Use it to                                                                                 |
+| --------------------- | ----------------------------------------------------------------------------------------- |
+| `date`                | Select, store or send the day: a plain local-midnight `Date`                              |
+| `bs`, `ad`            | Show the day number; `ad` for a second, smaller number                                    |
+| `outside`             | Fade the days of the previous and next month                                              |
+| `inRange`             | Hide or disable days with no confirmed data (only at the very start and end of the range) |
+| `today`               | Highlight today (pass `today` to set the day, for example "today in Nepal" on a server)   |
+| `saturday`, `holiday` | Show the day in red                                                                       |
+| `events`              | List the day's holidays and events, or draw dots                                          |
+
+Options: `weekStartsOn` (default 0, Sunday), `fixedWeeks: true` for always six weeks, `today`, and
+`events` for holidays and events:
+
+```ts
+import { createEventLookup, getEventName, NEPAL_HOLIDAYS } from "nepali-day-picker/holidays";
+
+const events = createEventLookup([...NEPAL_HOLIDAYS, { date: "2083-08-15", name: "Office party" }]);
+const grid = getBsMonthGrid(2083, 8, { events });
+// each day: holiday: true on public holidays; events: [...] with getEventName(e, "ne") for the text
+```
+
+**Vue:**
+
+```vue
+<script setup lang="ts">
+import { computed, ref } from "vue";
+import { formatBs, getBsMonthGrid, toNepaliDigits, WEEKDAYS } from "nepali-day-picker";
+import { createEventLookup, NEPAL_HOLIDAYS } from "nepali-day-picker/holidays";
+
+const events = createEventLookup(NEPAL_HOLIDAYS);
+const shown = ref({ year: 2083, month: 8 });
+const grid = computed(() => getBsMonthGrid(shown.value.year, shown.value.month, { events }));
+const selected = ref<Date>();
+</script>
+
+<template>
+  <div class="calendar">
+    <header>
+      <button :disabled="!grid.previous" @click="shown = grid.previous!">‹</button>
+      <strong>{{ formatBs(grid.start, "MMMM YYYY") }}</strong>
+      <button :disabled="!grid.next" @click="shown = grid.next!">›</button>
+    </header>
+    <div class="row">
+      <span v-for="w in grid.weekdays" :key="w">{{ WEEKDAYS.ne.short[w] }}</span>
+    </div>
+    <div v-for="(week, i) in grid.weeks" :key="i" class="row">
+      <button
+        v-for="day in week"
+        :key="day.date.getTime()"
+        :disabled="!day.inRange"
+        :class="{ outside: day.outside, today: day.today, red: day.saturday || day.holiday }"
+        :title="day.events.map((e) => (typeof e.name === 'string' ? e.name : e.name.ne)).join(', ')"
+        @click="selected = day.date"
+      >
+        {{ toNepaliDigits(day.bs.day) }}
+      </button>
+    </div>
+  </div>
+</template>
+```
+
+**Svelte:**
+
+```svelte
+<script lang="ts">
+  import { formatBs, getBsMonthGrid } from "nepali-day-picker";
+
+  let shown = $state({ year: 2083, month: 8 });
+  const grid = $derived(getBsMonthGrid(shown.year, shown.month));
+  let { onselect }: { onselect: (date: Date) => void } = $props();
+</script>
+
+<button disabled={!grid.previous} onclick={() => (shown = grid.previous!)}>‹</button>
+<strong>{formatBs(grid.start, "MMMM YYYY", { lang: "en" })}</strong>
+<button disabled={!grid.next} onclick={() => (shown = grid.next!)}>›</button>
+{#each grid.weeks as week}
+  <div class="row">
+    {#each week as day}
+      <button class:outside={day.outside} class:red={day.saturday} disabled={!day.inRange} onclick={() => onselect(day.date)}>
+        {day.bs.day}
+      </button>
+    {/each}
+  </div>
+{/each}
+```
+
+**Plain DOM:**
+
+```ts
+const grid = getBsMonthGrid(2083, 8);
+calendar.innerHTML = grid.weeks
+  .map((week) => `<tr>${week.map((d) => `<td class="${d.outside ? "outside" : ""}">${d.bs.day}</td>`).join("")}</tr>`)
+  .join("");
+```
+
+Throws a `RangeError` for a month outside the supported range and a `ProjectedDateError` for one in a
+projected year; follow `previous` and `next` and that never happens.
 
 ## Month and weekday dropdowns
 
@@ -222,12 +317,37 @@ BS_MONTHS.ne.formal; // वैशाख … चैत्र
 WEEKDAYS.ne.short; // आइत … शनि
 ```
 
-## Warn about projected dates
+## Handle future (projected) dates
 
-Month lengths for BS 2084 onward are projections. If your app plans that far ahead, say so:
+Nepal's calendar committee fixes each year's month lengths about a year ahead, so the table's values
+for BS 2084 onward are projections that can be a day off. By default the package refuses them:
+conversion, formatting, weeks and fiscal helpers throw a `ProjectedDateError`, `isValidBs` returns
+`false`, `parseBs` returns `null`, and the calendar stops at Chaitra 2083.
+
+Tell the user why a date was refused:
 
 ```ts
-import { adToBs, BS_DATA_INFO } from "nepali-day-picker";
+import { formatBs, ProjectedDateError } from "nepali-day-picker";
 
-const isProjected = (d: Date) => adToBs(d).year >= BS_DATA_INFO.projectedFrom;
+function bsLabel(date: Date): string {
+  try {
+    return formatBs(date, "long");
+  } catch (error) {
+    if (error instanceof ProjectedDateError) return `BS ${error.year} calendar not published yet`;
+    throw error;
+  }
+}
 ```
+
+Or accept the projections, once, at startup, if a possible one-day error is fine (long-range plans,
+loan schedules):
+
+```ts
+import { allowProjectedDates } from "nepali-day-picker";
+
+allowProjectedDates(); // the whole table, up to BS 2100, for every function and the calendar
+```
+
+`BS_DATA_INFO.projectedFrom` (2084) and `BS_DATA_INFO.lastConfirmed` (BS 2083-12-30) say where the
+confirmed data ends. Update the package when a new year is published: a patch release moves that year
+into the confirmed range.

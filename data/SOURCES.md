@@ -36,6 +36,9 @@ The `status` field in `bs-calendar.json` says how far each year can be trusted.
   lands on the same day.
 - Every new year from 2070 to 2083 and five national dates (Democracy Day 2007, Loktantra Day 2063,
   Republic Day 2065, the Gorkha earthquake and Constitution Day 2072) match. See `test/convert.test.ts`.
+- **BS 2083, month by month:** all 32 dated entries of the government's 2083 holiday list (below)
+  give both a BS and an AD date. They cover all twelve months, and every pair matches this table.
+  `test/holidays.test.ts` keeps the 30 nationwide holiday days of that check.
 
 ## Choices made by hand
 
@@ -49,8 +52,35 @@ The `status` field in `bs-calendar.json` says how far each year can be trusted.
   AD 2029-04-14.
 - **2089** (2 to 2): kept the ndt and ndl row, the same camp as the years around it.
 
+## Public holidays
+
+`holidays.json` holds Nepal's **nationwide** public holidays for **BS 2083** only, in the same format
+apps use for their own events (see `docs/react.md`, "Holidays and events").
+
+- **Source:** the Ministry of Home Affairs' "List of Public Holidays, 2083", published on 2082/11/18
+  (2 March 2026) for 2083/01/01 to 2083/12/31, as summarised by Pradhan & Associates
+  (<https://pradhanlaw.com/publications/list-of-public-holidays-2083-202627>), which links the Nepal
+  Gazette copy. Read on 2026-11-26.
+- **Kept:** the 20 entries the list marks as national public holidays. Dashain (2083/06/31–07/06) and
+  Tihar (2083/07/22–26) are one multi-day entry each.
+- **Left out:** holidays for one region, community or group: Gai Jatra, Indra Jatra, Ghode Jatra and
+  Bhoto Jatra (Kathmandu Valley), Teej, Jitiya and Women's Day (women), Fagu Purnima (56 hill
+  districts) and Terai Holi (21 Terai districts), Falgunanda Jayanti (Kirat community), Basanta
+  Panchami (schools), Disability Day, Siruwa Pawani (five districts), Muhammad Jayanti and Guru Nanak
+  Jayanti. Provinces may also declare up to six holidays of their own.
+- **Not dated in the list yet:** Eid al-Fitr and Eid al-Adha, national holidays whose dates depend on
+  the moon sighting. They are left out until the government announces them.
+- **Names:** English from the list; Nepali in standard spelling.
+- **Not used:** embassy pages (the Embassy in Brazil puts Constitution Day on 2 Asoj and labels Terai
+  Holi as Fagu Purnima), commercial calendar apps, and computed festival dates, which can differ from
+  the committee's decisions.
+
+**Adding a year:** when the Ministry publishes the next list (around Falgun), add its nationwide
+holidays to `holidays.json`, add the year to `years`, and add the official AD dates to
+`test/holidays.test.ts`.
+
 ## Still to do (plan, Phase 0)
 
-- Check 2070-2083 month by month against official calendars, not only new years.
+- Check 2070-2082 month by month against official calendars, not only new years (2083 is done).
 - Settle the five disputed years and 1970-1974 against archived calendars.
 - Replace projected years with published ones as the committee releases them.

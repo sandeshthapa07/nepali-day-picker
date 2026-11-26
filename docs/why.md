@@ -30,7 +30,9 @@ depends on a data table. Tables in circulation disagree, especially for future y
   moment isn't close to midnight.
 - Tests every new year from 2070 to 2083, well-known national dates such as Constitution Day
   (3 Asoj 2072 = 20 September 2015), and a round trip of all ~47,800 days in the range.
-- Tells your app which years are less certain, through `BS_DATA_INFO`, instead of hiding it.
+- Tells your app which years are less certain, through `BS_DATA_INFO`, instead of hiding it, and
+  refuses unpublished years with a `ProjectedDateError` unless you opt in with
+  `allowProjectedDates()`, so a guessed date never passes for a real one.
 
 ### Safe across time zones
 
@@ -66,8 +68,10 @@ answer "which fiscal period is this date in?" and "which days does this period c
 ### Small, typed and dependency-free
 
 - No dependencies.
-- About 5 kB minified and brotli-compressed for the whole library, 1.8 kB for just `adToBs` and
+- About 5.9 kB minified and brotli-compressed for the whole core, 1.4 kB for just `adToBs` and
   `bsToAd`. It is tree-shakeable, so you ship only what you import.
+- The core never loads React, react-day-picker or the holiday data, and the other entries share the
+  core's chunk instead of copying it, in both builds. A build check enforces all of it.
 - ES modules and CommonJS builds, TypeScript types included, and it runs in Node.js, browsers, Deno,
   Bun and edge runtimes.
 
@@ -79,14 +83,21 @@ Selection, ranges, dropdowns, keyboard navigation and accessibility all keep wor
 `"bs-ad"` or `"ad-bs"` variant shows both calendars' dates in each cell. In shadcn it is a one-import
 change. See the [calendar guide](react.md).
 
+### Public holidays, and your own events
+
+Nepal's nationwide public holidays, from the government's yearly list, show in red in the calendar,
+and apps add their own holidays and events in bulk in the same JSON format. Outside React, the same
+data feeds `getBsMonthGrid`, a calendar grid for any framework. See
+[Holidays and events](react.md#holidays-and-events).
+
 ## Data accuracy
 
-| Years                       | Status                                                                                                                  |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| BS 2000–2083 (AD 1943–2027) | All five sources agree on every month.                                                                                  |
-| BS 1975–1999                | 2–3 sources. In 1975, 1977, 1981, 1991 and 1998, they disagree about which months get the extra day; year totals agree. |
-| BS 1970–1974                | One source.                                                                                                             |
-| BS 2084–2100                | Projected. The committee has not published these years; values may change in a patch release.                           |
+| Years                       | Status                                                                                                                                                                      |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| BS 2000–2083 (AD 1943–2027) | All five sources agree on every month.                                                                                                                                      |
+| BS 1975–1999                | 2–3 sources. In 1975, 1977, 1981, 1991 and 1998, they disagree about which months get the extra day; year totals agree.                                                     |
+| BS 1970–1974                | One source.                                                                                                                                                                 |
+| BS 2084–2100                | Projected. The committee has not published these years. Off by default (`ProjectedDateError`); `allowProjectedDates()` turns them on. Values may change in a patch release. |
 
 Found a date that is wrong? Please [open an issue](https://github.com/sandeshthapa07/nepali-day-picker/issues)
 with the correct date and its source, such as a photo or link to an official calendar.
@@ -94,7 +105,10 @@ with the correct date and its source, such as a photo or link to an official cal
 ## When not to use it
 
 - **Dates before BS 1970 (AD 1913) or after BS 2100 (AD 2044).** They are outside the table.
-- **Tithi, festivals or public holidays.** Not included yet; a separate data pack may come later.
+- **Exact dates after BS 2083 (AD 2027-04-13), today.** They are projections until the committee
+  publishes them, and they are refused unless you call `allowProjectedDates()`.
+- **Tithi, festivals, or holidays of a region or group.** Only nationwide public holidays are
+  included, for BS 2083 so far. Add others yourself with `events`.
 - **Nepal Sambat or other calendars.** Only BS and Gregorian.
 - **Times of day and time-zone conversion.** This package works with calendar days. Use `Date`,
   `Intl` or a time library for hours and minutes.
@@ -107,7 +121,8 @@ what date pickers and `new Date(y, m, d)` use.
 
 **Why is BS 2084 onward "projected"?**
 Nepal's calendar committee publishes month lengths about a year ahead. Later years in every BS
-library are estimates. This package marks them so your app can tell users.
+library are estimates. This package marks them, and throws a `ProjectedDateError` for them by default
+so a guess is never shown as a fact. Call `allowProjectedDates()` if an estimate is good enough.
 
 **Why do month numbers start at 1?**
 Because people write BS dates that way (२०८२-०१-१२). JavaScript's `Date` uses 0–11 for months; the
@@ -118,5 +133,7 @@ Yes. Remember that "today" on a UTC server is not always today in Nepal; see
 [Today in Nepal on a server](guides.md#today-in-nepal-on-a-server).
 
 **Does it need React?**
-No. The core works anywhere JavaScript runs. React and react-day-picker are optional, needed only for
-`nepali-day-picker/react`.
+No. The core works anywhere JavaScript runs, with any framework or none. React and react-day-picker
+are optional, needed only for `nepali-day-picker/react`. For Vue, Svelte, Angular or plain DOM,
+`getBsMonthGrid` gives a BS month as plain data to render, with holidays and events from
+`nepali-day-picker/holidays`; see [Build a BS month grid](guides.md#build-a-bs-month-grid).

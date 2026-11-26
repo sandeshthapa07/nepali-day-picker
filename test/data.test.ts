@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { BS_DATA_INFO, getBsMonthLength } from "../src";
 import { ENCODED_MONTHS, FIRST_YEAR, LAST_YEAR, PROJECTED_FROM } from "../src/data/table";
+import { useProjectedDates } from "./helpers";
 
 const json = JSON.parse(readFileSync(new URL("../data/bs-calendar.json", import.meta.url), "utf8")) as {
   projectedFrom: number;
@@ -9,6 +10,8 @@ const json = JSON.parse(readFileSync(new URL("../data/bs-calendar.json", import.
 };
 
 describe("data table", () => {
+  useProjectedDates();
+
   it("matches data/bs-calendar.json month by month", () => {
     expect(ENCODED_MONTHS.length).toBe(json.years.length);
     for (const row of json.years) {

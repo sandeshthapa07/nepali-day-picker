@@ -1,5 +1,5 @@
 import { FIRST_YEAR, LAST_YEAR } from "../data/table";
-import { adToBs, bsToAd, monthLength } from "./convert";
+import { adToBs, bsToAd, isRejectedYear, monthLength, projectedError } from "./convert";
 import { toAsciiDigits, toNepaliDigits } from "./digits";
 import type { Lang } from "./pattern";
 
@@ -67,7 +67,8 @@ export function getFiscalYear(date: Date, options: FiscalOptions = {}): number {
 
 /**
  * First and last day (local midnight) of a fiscal year or one of its periods.
- * Throws a RangeError when the period reaches outside the supported range (FY 1969/70 and FY 2100/01).
+ * Throws a RangeError when the period reaches outside the supported range (FY 1969/70 and FY 2100/01),
+ * and a ProjectedDateError when it ends in a projected year (see `allowProjectedDates`).
  */
 export function getFiscalPeriodRange(
   fiscalYear: number,
@@ -84,11 +85,12 @@ export function getFiscalPeriodRange(
   }
   const first = fiscalMonth(fiscalYear, (index - 1) * months, startMonth);
   const last = fiscalMonth(fiscalYear, index * months - 1, startMonth);
-  if (first.year < FIRST_YEAR || last.year > LAST_YEAR) {
-    const name = formatFiscalYear(fiscalYear, { lang: "en", prefix: true, startMonth });
-    throw new RangeError(
-      `${period === "year" ? name : `${period} ${index} of ${name}`} reaches outside the supported range, BS ${FIRST_YEAR} to ${LAST_YEAR}.`,
-    );
+  const outside = first.year < FIRST_YEAR || last.year > LAST_YEAR;
+  if (outside || isRejectedYear(last.year)) {
+    const fy = formatFiscalYear(fiscalYear, { lang: "en", prefix: true, startMonth });
+    const name = period === "year" ? fy : `${period} ${index} of ${fy}`;
+    if (!outside) throw projectedError(`The end of ${name}`, last.year);
+    throw new RangeError(`${name} reaches outside the supported range, BS ${FIRST_YEAR} to ${LAST_YEAR}.`);
   }
   return {
     start: bsToAd(first.year, first.month, 1),

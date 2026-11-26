@@ -37,10 +37,13 @@ npm test
 
 ```text
 data/bs-calendar.json   month lengths for each BS year: the source of truth
+data/holidays.json      nationwide public holidays, by BS year
 data/SOURCES.md         where the data came from, and how sure it is
 scripts/build-data.mjs  encodes the JSON into src/data/table.ts
-src/core/               converter, formatting, parsing, fiscal year, weeks, names, digits
+scripts/check-entries.mjs  checks the built entries stay separate (no React or holiday data in the core)
+src/core/               converter, formatting, parsing, fiscal year, weeks, month grid, names, digits
 src/date-lib/           BS date library for react-day-picker (nepali-day-picker/date-lib)
+src/holidays/           holiday data, the event format and lookups (nepali-day-picker/holidays)
 src/react/              DayPicker, useNepaliCalendar and helpers (nepali-day-picker/react)
 playground/             a page to see every calendar variant in a browser
 src/index.ts            the public API
@@ -56,6 +59,15 @@ docs/                   user guides and API reference
    it is out of date.
 4. Add a golden test in `test/convert.test.ts` for the corrected date, naming its source.
 5. Note the change and its source in `data/SOURCES.md`.
+
+## Add a year's public holidays
+
+The Ministry of Home Affairs publishes each year's list in the Nepal Gazette, around Falgun.
+
+1. Add the year's **nationwide** holidays to `data/holidays.json`, in the same format as the others,
+   and the year to `years`. Leave out holidays for a region, community or group.
+2. Add their official AD dates to `test/holidays.test.ts`, which checks every day of the year.
+3. Note the source in `data/SOURCES.md`, under "Public holidays".
 
 ## See the calendar in a browser
 

@@ -7,9 +7,10 @@ import {
   getFiscalPeriod,
   getFiscalPeriodRange,
   getFiscalYear,
+  ProjectedDateError,
   parseFiscalYear,
 } from "../src";
-import { ymd } from "./helpers";
+import { withProjectedDates, ymd } from "./helpers";
 
 const range = (fy: number, period?: FiscalPeriod, index?: number, startMonth?: number) => {
   const r = getFiscalPeriodRange(fy, period, index, { startMonth });
@@ -65,6 +66,10 @@ describe("Nepal fiscal year (Shrawan 1 to the end of Asar)", () => {
       const [y, m, d] = iso.split("-").map(Number);
       return ymd(new Date(y, m - 1, d + 1));
     };
+    withProjectedDates(() => tile(dayAfter));
+  });
+
+  function tile(dayAfter: (iso: string) => string) {
     for (let fy = 1970; fy <= 2099; fy++) {
       const [yearStart, yearEnd] = range(fy);
       for (const [period, count] of [
@@ -83,14 +88,33 @@ describe("Nepal fiscal year (Shrawan 1 to the end of Asar)", () => {
       }
       if (fy < 2099 && dayAfter(yearEnd) !== range(fy + 1)[0]) expect(dayAfter(yearEnd)).toBe(range(fy + 1)[0]);
     }
-  });
+  }
 
   it("throws a RangeError for periods outside the supported range", () => {
     expect(getFiscalYear(bsToAd(1970, 1, 1))).toBe(1969);
     expect(() => getFiscalPeriodRange(1969)).toThrow(/FY 1969\/70 reaches outside the supported range/);
-    expect(() => getFiscalPeriodRange(2100)).toThrow(RangeError);
     expect(range(1969, "quarter", 4)).toEqual([bs(1970, 1, 1), lastDay(1970, 3)]);
-    expect(range(2100, "quarter", 1)).toEqual([bs(2100, 4, 1), lastDay(2100, 6)]);
+    withProjectedDates(() => {
+      expect(() => getFiscalPeriodRange(2100)).toThrow(/FY 2100\/01 reaches outside the supported range/);
+      expect(range(2100, "quarter", 1)).toEqual([bs(2100, 4, 1), lastDay(2100, 6)]);
+    });
+  });
+
+  it("throws a ProjectedDateError for periods that end in a projected year", () => {
+    // FY 2083/84 ends on the last day of Asar 2084, a projected year.
+    expect(() => getFiscalPeriodRange(2083)).toThrow(ProjectedDateError);
+    expect(() => getFiscalPeriodRange(2083)).toThrow(/^The end of FY 2083\/84 falls in BS 2084/);
+    expect(() => getFiscalPeriodRange(2083, "quarter", 4)).toThrow(/The end of quarter 4 of FY 2083\/84/);
+    expect(() => getFiscalPeriodRange(2099)).toThrow(ProjectedDateError);
+    expect(() => getFiscalPeriodRange(2100)).not.toThrow(ProjectedDateError); // past the table: RangeError
+    expect(() => getFiscalPeriod(bsToAd(2083, 8, 10))).toThrow(ProjectedDateError);
+    expect(() => getFiscalYear(bsToAd(2083, 12, 30))).not.toThrow();
+    // The first three quarters of FY 2083/84 end in BS 2083, so they work.
+    expect(range(2083, "quarter", 3)).toEqual([bs(2083, 10, 1), lastDay(2083, 12)]);
+    expect(getFiscalPeriod(bsToAd(2083, 8, 10), "quarter").index).toBe(2);
+    // With a Baisakh start, FY 2083 is BS 2083 itself.
+    expect(range(2083, "year", 1, 1)).toEqual([bs(2083, 1, 1), lastDay(2083, 12)]);
+    expect(withProjectedDates(() => range(2083))).toEqual(withProjectedDates(() => [bs(2083, 4, 1), lastDay(2084, 3)]));
   });
 
   it("rejects bad arguments", () => {

@@ -113,9 +113,12 @@ Using shadcn/ui? Change one import in `components/ui/calendar.tsx`; the
    validation, APIs and databases need no change.
 2. **A `Date` means its local calendar day.** The time of day is ignored, and `bsToAd` returns local
    midnight. On a server, read [Time zones](guides.md#today-in-nepal-on-a-server).
-3. **The supported range is BS 1970 to 2100** (AD 1913-04-13 to 2044-04-13). Outside it, conversion
-   and formatting throw a `RangeError`, and parsing returns `null`. BS 2084 onward is projected;
-   see [Data accuracy](why.md#data-accuracy).
+3. **The supported range is BS 1970 to 2083** (AD 1913-04-13 to 2027-04-13), the years with
+   published month lengths. Outside it, conversion and formatting throw a `RangeError`, and parsing
+   returns `null`. BS 2084 onward is not published yet, so those dates throw a `ProjectedDateError`
+   unless you call `allowProjectedDates()`; see
+   [Handle future dates](guides.md#handle-future-projected-dates).
 
-Next: [Guides and recipes](guides.md) for forms, databases and reports, and the
-[calendar guide](react.md) for react-day-picker and shadcn/ui.
+Next: [Guides and recipes](guides.md) for forms, databases, reports and a calendar grid in Vue,
+Svelte or plain DOM, and the [calendar guide](react.md) for react-day-picker and shadcn/ui, with
+public holidays and your own events.

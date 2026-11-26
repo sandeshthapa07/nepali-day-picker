@@ -1,13 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { BS_RANGE, bsToAd, getBsMonthLength } from "../src";
 import { getBsDateLib } from "../src/date-lib";
-import { ymd } from "./helpers";
+import { useProjectedDates, ymd } from "./helpers";
 
 const lib = getBsDateLib({ lang: "ne" });
 const en = getBsDateLib({ lang: "en" });
 const nextDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
 
 describe("DateLib contract, every month in the table", () => {
+  useProjectedDates();
+
   it("month bounds, getters, setters and arithmetic agree with the converter", () => {
     let months = 0;
     for (let year = 1970; year <= 2100; year++) {

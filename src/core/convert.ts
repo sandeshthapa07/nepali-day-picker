@@ -30,8 +30,43 @@ for (let i = 0; i < YEARS; i++) {
   for (let m = 0; m < 12; m++) total += 29 + ((ENCODED_MONTHS[i] >> (2 * m)) & 3);
   YEAR_START[i + 1] = YEAR_START[i] + total;
 }
-/** Day number of the last supported day. */
+/** Day number of the last day in the table, projected years included. */
 export const LAST_DAY_NUMBER = YEAR_START[YEARS] - 1;
+/** Day number of the last day with published month lengths: the day before Baisakh 1 of PROJECTED_FROM. */
+export const LAST_CONFIRMED_DAY_NUMBER = YEAR_START[Math.min(PROJECTED_FROM, LAST_YEAR + 1) - FIRST_YEAR] - 1;
+
+let projectedAllowed = false;
+
+/**
+ * Lets every function accept dates in the projected years, `BS_DATA_INFO.projectedFrom` to
+ * `BS_DATA_INFO.lastYear`. Off by default: those dates throw a `ProjectedDateError`, because Nepal's
+ * calendar committee has not published their month lengths yet and a projected date can be a day off.
+ * Call it once at startup, before any calendar renders. `allowProjectedDates(false)` turns the check
+ * back on.
+ */
+export function allowProjectedDates(allow = true): void {
+  projectedAllowed = allow;
+}
+
+/** Day number of the last day the strict functions accept right now. */
+export function lastDayNumber(): number {
+  return projectedAllowed ? LAST_DAY_NUMBER : LAST_CONFIRMED_DAY_NUMBER;
+}
+
+/**
+ * Thrown for a date in a year whose month lengths are only projected (`BS_DATA_INFO.projectedFrom`
+ * on). It extends RangeError, so code that already catches RangeError keeps working. Call
+ * `allowProjectedDates()` to accept these dates.
+ */
+export class ProjectedDateError extends RangeError {
+  override name = "ProjectedDateError";
+  /** The projected BS year the rejected date falls in. */
+  readonly year: number;
+  constructor(message: string, year: number) {
+    super(message);
+    this.year = year;
+  }
+}
 
 /** Month length without validation. `month` is 1-12. */
 export function monthLength(year: number, month: number): number {
@@ -70,6 +105,11 @@ export function civilFromUnixDay(days: number, out: BsDate): BsDate {
 export function dayNumberFromDate(date: Date): number {
   if (Number.isNaN(date.getTime())) throw new RangeError("Invalid Date");
   return unixDayFromCivil(date.getFullYear(), date.getMonth() + 1, date.getDate()) - EPOCH_UNIX_DAY;
+}
+
+/** Day number of a proleptic Gregorian date (month 1-12). */
+export function dayNumberFromAd(year: number, month: number, day: number): number {
+  return unixDayFromCivil(year, month, day) - EPOCH_UNIX_DAY;
 }
 
 /** Local-midnight Date for a day number. */
@@ -122,12 +162,56 @@ export function dayNumberFromBs(year: number, month: number, day: number): numbe
   return n;
 }
 
+const pad = (n: number, width = 2) => String(n).padStart(width, "0");
+/** "2083-12-30" */
+const isoText = (d: BsDate) => `${pad(d.year, 4)}-${pad(d.month)}-${pad(d.day)}`;
+/** The AD date of a day number, as a {year, month, day} holder. */
+const adOf = (n: number) => civilFromUnixDay(n + EPOCH_UNIX_DAY, { year: 0, month: 0, day: 0 });
+
+/** "BS 1970-01-01 to BS 2083-12-30 (AD 1913-04-13 to AD 2027-04-13)": the range that ends on day `last`. */
+function spanText(last: number): string {
+  return `BS ${FIRST_YEAR}-01-01 to BS ${isoText(bsFromDayNumber(last))} (AD ${isoText(adOf(0))} to AD ${isoText(adOf(last))})`;
+}
+
+function rangeText(): string {
+  const text = `Supported range: ${spanText(lastDayNumber())}.`;
+  return projectedAllowed || LAST_CONFIRMED_DAY_NUMBER === LAST_DAY_NUMBER
+    ? text
+    : `${text} Projected dates up to BS ${LAST_YEAR} need allowProjectedDates().`;
+}
+
+/**
+ * The ProjectedDateError for `subject` ("BS 2084-01-15", "AD 2027-05-01", "FY 2083/84"), which falls in
+ * or reaches into the projected BS year `year`.
+ */
+export function projectedError(subject: string, year: number): ProjectedDateError {
+  return new ProjectedDateError(
+    `${subject} falls in BS ${year}, whose month lengths are not published yet. ` +
+      `Confirmed range: ${spanText(LAST_CONFIRMED_DAY_NUMBER)}. To accept projected dates, call allowProjectedDates().`,
+    year,
+  );
+}
+
+/** "AD 2027-05-01": the AD date of a day number, for error messages. */
+export function adText(n: number): string {
+  return `AD ${isoText(adOf(n))}`;
+}
+
+/**
+ * Throws unless the strict functions accept day number `n` right now: a RangeError outside the table, a
+ * ProjectedDateError in a projected year. `subject` names the date in the message.
+ */
+export function assertDayNumber(n: number, subject: string): void {
+  if (n < 0 || n > LAST_DAY_NUMBER) throw new RangeError(`${subject} is outside the supported range. ${rangeText()}`);
+  if (n > lastDayNumber()) throw projectedError(subject, bsFromDayNumber(n).year);
+}
+
 function isInt(value: unknown): value is number {
   return Number.isInteger(value);
 }
 
-/** True when the BS date exists and is inside the supported range. `month` is 1-12. */
-export function isValidBs(year: number, month: number, day: number): boolean {
+/** True when the BS date exists in the table, projected years included. */
+function isInTable(year: number, month: number, day: number): boolean {
   return (
     isInt(year) &&
     isInt(month) &&
@@ -141,65 +225,76 @@ export function isValidBs(year: number, month: number, day: number): boolean {
   );
 }
 
-/** Number of days (29-32) in a BS month. `month` is 1-12. */
+/** True for a projected year while projected dates are not allowed. */
+export function isRejectedYear(year: number): boolean {
+  return year >= PROJECTED_FROM && !projectedAllowed;
+}
+
+/**
+ * True when the BS date exists and is inside the supported range. `month` is 1-12. Dates in projected
+ * years count only after `allowProjectedDates()`.
+ */
+export function isValidBs(year: number, month: number, day: number): boolean {
+  return isInTable(year, month, day) && !isRejectedYear(year);
+}
+
+/**
+ * Number of days (29-32) in a BS month. `month` is 1-12. Throws a RangeError outside the table and a
+ * ProjectedDateError in a projected year.
+ */
 export function getBsMonthLength(year: number, month: number): number {
   if (!isInt(year) || !isInt(month) || month < 1 || month > 12 || year < FIRST_YEAR || year > LAST_YEAR) {
     throw new RangeError(`No BS month ${year}-${month}. ${rangeText()}`);
   }
+  if (isRejectedYear(year)) throw projectedError(`BS month ${year}-${pad(month)}`, year);
   return monthLength(year, month);
 }
 
-const pad = (n: number, width = 2) => String(n).padStart(width, "0");
-
-let cachedRangeText: string | undefined;
-function rangeText(): string {
-  if (cachedRangeText === undefined) {
-    const end = bsFromDayNumber(LAST_DAY_NUMBER);
-    const adStart = civilFromUnixDay(EPOCH_UNIX_DAY, { year: 0, month: 0, day: 0 });
-    const adEnd = civilFromUnixDay(LAST_DAY_NUMBER + EPOCH_UNIX_DAY, { year: 0, month: 0, day: 0 });
-    cachedRangeText =
-      `Supported range: BS ${FIRST_YEAR}-01-01 to BS ${end.year}-${pad(end.month)}-${pad(end.day)} ` +
-      `(AD ${adStart.year}-${pad(adStart.month)}-${pad(adStart.day)} to AD ${adEnd.year}-${pad(adEnd.month)}-${pad(adEnd.day)}).`;
-  }
-  return cachedRangeText;
-}
-
-/** Converts a Date's local calendar day to BS. Throws a RangeError outside the supported range. */
+/**
+ * Converts a Date's local calendar day to BS. Throws a RangeError outside the supported range, and a
+ * ProjectedDateError in a projected year (see `allowProjectedDates`).
+ */
 export function adToBs(date: Date): BsDate {
   const n = dayNumberFromDate(date);
-  if (n < 0 || n > LAST_DAY_NUMBER) throw new RangeError(`Date is outside the supported range. ${rangeText()}`);
+  if (n < 0 || n > lastDayNumber()) assertDayNumber(n, adText(n));
   return bsFromDayNumber(n);
 }
 
 /**
  * Converts a BS date to a Date at local midnight. `month` is 1-12.
- * Throws a RangeError when the date does not exist or is outside the supported range.
+ * Throws a RangeError when the date does not exist or is outside the supported range, and a
+ * ProjectedDateError in a projected year (see `allowProjectedDates`).
  */
 export function bsToAd(date: BsDate): Date;
 export function bsToAd(year: number, month: number, day: number): Date;
 export function bsToAd(yearOrDate: number | BsDate, month = Number.NaN, day = Number.NaN): Date {
   const bs = typeof yearOrDate === "object" ? yearOrDate : { year: yearOrDate, month, day };
-  if (!isValidBs(bs.year, bs.month, bs.day)) {
+  if (!isInTable(bs.year, bs.month, bs.day)) {
     throw new RangeError(`BS ${bs.year}-${bs.month}-${bs.day} is not a valid date. ${rangeText()}`);
   }
+  if (isRejectedYear(bs.year)) throw projectedError(`BS ${isoText(bs)}`, bs.year);
   return dateFromDayNumber(dayNumberFromBs(bs.year, bs.month, bs.day));
 }
 
 const START: Readonly<BsDate> = Object.freeze({ year: FIRST_YEAR, month: 1, day: 1 });
-const END: Readonly<BsDate> = Object.freeze(bsFromDayNumber(LAST_DAY_NUMBER));
+const CONFIRMED_END: Readonly<BsDate> = Object.freeze(bsFromDayNumber(LAST_CONFIRMED_DAY_NUMBER));
+const TABLE_END: Readonly<BsDate> = Object.freeze(bsFromDayNumber(LAST_DAY_NUMBER));
 
 /**
- * The supported range, for DayPicker's `startMonth` and `endMonth`.
- * `startDate` and `endDate` return a new local-midnight Date on each read.
+ * The supported range, for DayPicker's `startMonth` and `endMonth`. It ends on the last confirmed day,
+ * or on the last projected day after `allowProjectedDates()`. `startDate` and `endDate` return a new
+ * local-midnight Date on each read.
  */
 export const BS_RANGE = Object.freeze({
   start: START,
-  end: END,
+  get end(): Readonly<BsDate> {
+    return projectedAllowed ? TABLE_END : CONFIRMED_END;
+  },
   get startDate(): Date {
     return dateFromDayNumber(0);
   },
   get endDate(): Date {
-    return dateFromDayNumber(LAST_DAY_NUMBER);
+    return dateFromDayNumber(lastDayNumber());
   },
 });
 
@@ -207,8 +302,13 @@ export const BS_RANGE = Object.freeze({
 export const BS_DATA_INFO = Object.freeze({
   firstYear: FIRST_YEAR,
   lastYear: LAST_YEAR,
-  /** From this year on, month lengths are projections; the calendar committee has not published them yet. */
+  /**
+   * From this year on, month lengths are projections; the calendar committee has not published them yet.
+   * Dates from here on throw a ProjectedDateError unless `allowProjectedDates()` was called.
+   */
   projectedFrom: PROJECTED_FROM,
+  /** Last day with published month lengths. */
+  lastConfirmed: CONFIRMED_END,
   /** Years where the sources split the days between months differently. Year totals still agree. */
   disputedYears: DISPUTED_YEARS,
   /** Years with only one source. */

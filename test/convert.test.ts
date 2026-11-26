@@ -1,6 +1,18 @@
-import { describe, expect, it } from "vitest";
-import { adToBs, BS_RANGE, bsToAd, getBsMonthLength, isValidBs } from "../src";
-import { allAdDays, local, localDayExists, ymd } from "./helpers";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  adToBs,
+  allowProjectedDates,
+  BS_DATA_INFO,
+  BS_RANGE,
+  bsToAd,
+  formatBs,
+  getBsMonthLength,
+  getBsWeek,
+  getBsWeekOfMonth,
+  isValidBs,
+  ProjectedDateError,
+} from "../src";
+import { allAdDays, local, localDayExists, useProjectedDates, withProjectedDates, ymd } from "./helpers";
 
 // BS date -> AD date. New years from published calendars, plus well-known national dates.
 const GOLDEN: [string, [number, number, number], string][] = [
@@ -41,6 +53,8 @@ describe("golden dates", () => {
 });
 
 describe("exhaustive", () => {
+  useProjectedDates();
+
   it("maps every supported day both ways, one BS day per AD day", () => {
     let previous: { year: number; month: number; day: number } | undefined;
     let count = 0;
@@ -82,8 +96,14 @@ describe("adToBs", () => {
     const after = BS_RANGE.endDate;
     after.setDate(after.getDate() + 1);
     expect(() => adToBs(before)).toThrow(RangeError);
-    expect(() => adToBs(before)).toThrow(/BS 1970-01-01 to BS 2100-12-\d\d \(AD 1913-04-13 to AD 2044-04-\d\d\)/);
+    expect(() => adToBs(before)).toThrow(/^AD 1913-04-12 is outside the supported range/);
+    expect(() => adToBs(before)).toThrow(/BS 1970-01-01 to BS 2083-12-30 \(AD 1913-04-13 to AD 2027-04-13\)/);
     expect(() => adToBs(after)).toThrow(RangeError);
+    withProjectedDates(() => {
+      const pastTable = BS_RANGE.endDate;
+      pastTable.setDate(pastTable.getDate() + 1);
+      expect(() => adToBs(pastTable)).toThrow(/BS 1970-01-01 to BS 2100-12-\d\d \(AD 1913-04-13 to AD 2044-04-\d\d\)/);
+    });
   });
 
   it("throws on an Invalid Date", () => {
@@ -135,10 +155,79 @@ describe("validation helpers", () => {
 
   it("BS_RANGE gives fresh Dates for DayPicker", () => {
     expect(BS_RANGE.start).toEqual({ year: 1970, month: 1, day: 1 });
-    expect(BS_RANGE.end.year).toBe(2100);
+    expect(BS_RANGE.end).toEqual(BS_DATA_INFO.lastConfirmed);
     expect(BS_RANGE.startDate).not.toBe(BS_RANGE.startDate);
     expect(ymd(BS_RANGE.startDate)).toBe("1913-04-13");
     expect(adToBs(BS_RANGE.endDate)).toEqual(BS_RANGE.end);
+    withProjectedDates(() => {
+      expect(BS_RANGE.end.year).toBe(2100);
+      expect(adToBs(BS_RANGE.endDate)).toEqual(BS_RANGE.end);
+    });
+  });
+});
+
+describe("projected years", () => {
+  afterEach(() => allowProjectedDates(false));
+  const lastConfirmed = () => bsToAd(BS_DATA_INFO.lastConfirmed);
+  const firstProjected = () => {
+    const d = lastConfirmed();
+    d.setDate(d.getDate() + 1);
+    return d;
+  };
+
+  it("confirmed data ends on the last day of BS 2083", () => {
+    expect(BS_DATA_INFO.projectedFrom).toBe(2084);
+    expect(BS_DATA_INFO.lastConfirmed).toEqual({ year: 2083, month: 12, day: 30 });
+    expect(ymd(lastConfirmed())).toBe("2027-04-13");
+    expect(adToBs(lastConfirmed())).toEqual({ year: 2083, month: 12, day: 30 });
+  });
+
+  it("throw a ProjectedDateError, which is a RangeError", () => {
+    let error: unknown;
+    try {
+      bsToAd(2084, 1, 1);
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toBeInstanceOf(ProjectedDateError);
+    expect(error).toBeInstanceOf(RangeError);
+    const projected = error as ProjectedDateError;
+    expect(projected.name).toBe("ProjectedDateError");
+    expect(projected.year).toBe(2084);
+    expect(projected.message).toMatch(/^BS 2084-01-01 falls in BS 2084, whose month lengths/);
+    expect(projected.message).toContain("BS 1970-01-01 to BS 2083-12-30 (AD 1913-04-13 to AD 2027-04-13)");
+    expect(projected.message).toContain("allowProjectedDates()");
+  });
+
+  it("are rejected by every strict function", () => {
+    expect(() => adToBs(firstProjected())).toThrow(/^AD 2027-04-14 falls in BS 2084/);
+    expect(() => adToBs(new Date(2040, 0, 1))).toThrow(ProjectedDateError);
+    expect(() => bsToAd({ year: 2090, month: 6, day: 15 })).toThrow(ProjectedDateError);
+    expect(() => getBsMonthLength(2084, 1)).toThrow(/^BS month 2084-01 falls in BS 2084/);
+    expect(() => formatBs(firstProjected(), "iso")).toThrow(ProjectedDateError);
+    expect(() => getBsWeek(firstProjected())).toThrow(ProjectedDateError);
+    expect(() => getBsWeekOfMonth(firstProjected())).toThrow(ProjectedDateError);
+    expect(isValidBs(2084, 1, 1)).toBe(false);
+    expect(isValidBs(2083, 12, 30)).toBe(true);
+  });
+
+  it("past the table stays a plain RangeError", () => {
+    for (const fn of [() => bsToAd(2101, 1, 1), () => adToBs(new Date(2050, 0, 1)), () => getBsMonthLength(2101, 1)]) {
+      expect(fn).toThrow(RangeError);
+      expect(fn).not.toThrow(ProjectedDateError);
+      expect(fn).toThrow(/Projected dates up to BS 2100 need allowProjectedDates\(\)/);
+    }
+  });
+
+  it("work after allowProjectedDates(), until it is turned off again", () => {
+    allowProjectedDates();
+    expect(adToBs(firstProjected())).toEqual({ year: 2084, month: 1, day: 1 });
+    expect(getBsMonthLength(2084, 1)).toBeGreaterThanOrEqual(30);
+    expect(isValidBs(2100, 1, 1)).toBe(true);
+    expect(formatBs(firstProjected(), "iso")).toBe("2084-01-01");
+    expect(() => bsToAd(2101, 1, 1)).toThrow(RangeError);
+    allowProjectedDates(false);
+    expect(() => adToBs(firstProjected())).toThrow(ProjectedDateError);
   });
 });
 

@@ -70,3 +70,32 @@ describe("useNepaliCalendar with an unedited shadcn Calendar", () => {
     expect(months.options[0].textContent).toBe("Baisakh");
   });
 });
+
+const ASOJ_2083 = bsToAd(2083, 6, 1); // Constitution Day on the 3rd
+
+function UneditedWithHolidays() {
+  const nepali = useNepaliCalendar({ lang: "en" });
+  return <OriginalCalendar mode="single" month={ASOJ_2083} {...nepali} />;
+}
+
+describe("holidays and events in shadcn", () => {
+  const cell = (bs: string) => document.querySelector(`td[data-day="${bs}"]`) as HTMLElement;
+  const events = [{ date: "2083-06-14", name: "Office party" }];
+
+  it("the one-import swap: red holidays and event dots inside shadcn's own day button", () => {
+    render(<Calendar mode="single" lang="en" month={ASOJ_2083} events={events} />);
+    expect(["#dc2626", "rgb(220, 38, 38)"]).toContain(cell("2083-06-03").style.color);
+    const party = cell("2083-06-14").querySelector("button") as HTMLElement;
+    expect(party.className).toContain("data-[selected-single=true]:bg-primary"); // still shadcn's button
+    expect(party.querySelector("[data-events]")).not.toBeNull();
+    expect((cell("2083-06-03").querySelector("button") as HTMLElement).title).toBe("Constitution Day");
+  });
+
+  it("the hook without a DayButton: red holidays, shadcn's button untouched", () => {
+    render(<UneditedWithHolidays />);
+    expect(["#dc2626", "rgb(220, 38, 38)"]).toContain(cell("2083-06-03").style.color);
+    const constitution = cell("2083-06-03").querySelector("button") as HTMLElement;
+    expect(constitution.className).toContain("data-[selected-single=true]:bg-primary");
+    expect(constitution.getAttribute("aria-label")).toContain("Constitution Day");
+  });
+});

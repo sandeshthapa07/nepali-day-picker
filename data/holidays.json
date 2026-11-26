@@ -1,0 +1,66 @@
+{
+  "description": "Nepal's nationwide public holidays, from the Government of Nepal's yearly list (Ministry of Home Affairs). Dates are BS, YYYY-MM-DD; endDate is the last day of a multi-day holiday. Only the years in \"years\" are covered. Sources: data/SOURCES.md.",
+  "years": [2083],
+  "events": [
+    { "date": "2083-01-01", "type": "holiday", "name": { "ne": "नयाँ वर्ष", "en": "Nepali New Year" } },
+    {
+      "date": "2083-01-18",
+      "type": "holiday",
+      "name": {
+        "ne": "बुद्ध जयन्ती, अन्तर्राष्ट्रिय श्रमिक दिवस, उभौली पर्व",
+        "en": "Buddha Jayanti, International Labour Day, Ubhauli Parwa"
+      }
+    },
+    { "date": "2083-02-15", "type": "holiday", "name": { "ne": "गणतन्त्र दिवस", "en": "Republic Day" } },
+    {
+      "date": "2083-05-12",
+      "type": "holiday",
+      "name": { "ne": "जनै पूर्णिमा, रक्षाबन्धन", "en": "Janai Purnima, Raksha Bandhan" }
+    },
+    {
+      "date": "2083-05-19",
+      "type": "holiday",
+      "name": { "ne": "श्रीकृष्ण जन्माष्टमी", "en": "Krishna Janmashtami" }
+    },
+    { "date": "2083-06-03", "type": "holiday", "name": { "ne": "संविधान दिवस", "en": "Constitution Day" } },
+    { "date": "2083-06-25", "type": "holiday", "name": { "ne": "घटस्थापना", "en": "Ghatasthapana" } },
+    {
+      "date": "2083-06-31",
+      "endDate": "2083-07-06",
+      "type": "holiday",
+      "name": { "ne": "दशैं बिदा", "en": "Dashain holidays" }
+    },
+    {
+      "date": "2083-07-22",
+      "endDate": "2083-07-26",
+      "type": "holiday",
+      "name": { "ne": "तिहार बिदा", "en": "Tihar holidays" }
+    },
+    { "date": "2083-07-29", "type": "holiday", "name": { "ne": "छठ पर्व", "en": "Chhath Parwa" } },
+    {
+      "date": "2083-09-09",
+      "type": "holiday",
+      "name": {
+        "ne": "धान्य पूर्णिमा, उधौली पर्व, योमरी पुन्ही",
+        "en": "Dhanya Purnima, Udhauli Parwa, Yomari Punhi"
+      }
+    },
+    { "date": "2083-09-10", "type": "holiday", "name": { "ne": "क्रिसमस डे", "en": "Christmas Day" } },
+    { "date": "2083-09-15", "type": "holiday", "name": { "ne": "तमु ल्होसार", "en": "Tamu Lhosar" } },
+    {
+      "date": "2083-09-27",
+      "type": "holiday",
+      "name": { "ne": "पृथ्वी जयन्ती, राष्ट्रिय एकता दिवस", "en": "Prithvi Jayanti, National Unity Day" }
+    },
+    {
+      "date": "2083-10-01",
+      "type": "holiday",
+      "name": { "ne": "माघे संक्रान्ति, माघी पर्व", "en": "Maghe Sankranti, Maghi Parwa" }
+    },
+    { "date": "2083-10-16", "type": "holiday", "name": { "ne": "शहीद दिवस", "en": "Martyrs' Day" } },
+    { "date": "2083-10-24", "type": "holiday", "name": { "ne": "सोनाम ल्होसार", "en": "Sonam Lhosar" } },
+    { "date": "2083-11-07", "type": "holiday", "name": { "ne": "प्रजातन्त्र दिवस", "en": "Democracy Day" } },
+    { "date": "2083-11-22", "type": "holiday", "name": { "ne": "महाशिवरात्रि", "en": "Maha Shivaratri" } },
+    { "date": "2083-11-25", "type": "holiday", "name": { "ne": "ग्याल्पो ल्होसार", "en": "Gyalpo Lhosar" } }
+  ]
+}

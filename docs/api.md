@@ -11,12 +11,18 @@ Conventions used throughout:
 - A `Date` stands for its **local calendar day**. The time of day is ignored on input, and every
   returned `Date` is at local midnight.
 - BS months are numbered **1–12** (Baisakh = 1). Weekdays are **0–6** (Sunday = 0), as in `Date#getDay`.
-- The supported range is **BS 1970-01-01 to BS 2100-12-31** (AD 1913-04-13 to AD 2044-04-13).
+- The supported range is **BS 1970-01-01 to BS 2083-12-30** (AD 1913-04-13 to AD 2027-04-13), the
+  years with published month lengths. Dates in the projected years BS 2084–2100 throw a
+  [`ProjectedDateError`](#projecteddateerror) until you call
+  [`allowProjectedDates()`](#allowprojecteddatesallow--true-void), which extends the range to
+  BS 2100-12-30 (AD 2044-04-13).
 
 The calendar components (`nepali-day-picker/react`) are documented in the [calendar guide](react.md).
+Holidays and events are in their own entry, [`nepali-day-picker/holidays`](#holidays-and-events).
 
 Contents: [Conversion](#conversion) · [Formatting](#formatting) · [Parsing](#parsing) ·
-[Fiscal year](#fiscal-year) · [Weeks](#weeks) · [Names and digits](#names-and-digits) · [Types](#types)
+[Fiscal year](#fiscal-year) · [Weeks](#weeks) · [Names and digits](#names-and-digits) ·
+[Holidays and events](#holidays-and-events) · [Types](#types)
 
 ## Conversion
 
@@ -29,7 +35,7 @@ adToBs(new Date(2025, 3, 25)); // { year: 2082, month: 1, day: 12 }
 ```
 
 Throws a `RangeError` for an Invalid Date or a day outside the supported range. The message names the
-range.
+range. A day in a projected year throws a `ProjectedDateError`.
 
 ### `bsToAd(year, month, day): Date` · `bsToAd(date: BsDate): Date`
 
@@ -41,14 +47,16 @@ bsToAd({ year: 2082, month: 1, day: 12 }); // the same
 ```
 
 Throws a `RangeError` when the date does not exist (for example day 32 of a 31-day month), a value is
-not an integer, or the date is outside the supported range.
+not an integer, or the date is outside the supported range, and a `ProjectedDateError` for a date in a
+projected year.
 
 In a time zone that skipped a calendar day (Pacific/Apia skipped 30 December 2011), that day has no
 local `Date`, and the result is the next day.
 
 ### `getBsMonthLength(year: number, month: number): number`
 
-Days in a BS month, 29–32. Throws a `RangeError` outside the table.
+Days in a BS month, 29–32. Throws a `RangeError` outside the table and a `ProjectedDateError` in a
+projected year.
 
 ```ts
 getBsMonthLength(2082, 1); // 31
@@ -56,36 +64,73 @@ getBsMonthLength(2082, 1); // 31
 
 ### `isValidBs(year: number, month: number, day: number): boolean`
 
-`true` when the date exists and is inside the supported range. Never throws.
+`true` when the date exists and is inside the supported range. Never throws. Dates in projected years
+are `false` until `allowProjectedDates()` is called.
 
 ### `BS_RANGE`
 
 ```ts
 BS_RANGE.start; // { year: 1970, month: 1, day: 1 }
-BS_RANGE.end; // { year: 2100, month: 12, day: 31 }
+BS_RANGE.end; // { year: 2083, month: 12, day: 30 }; { year: 2100, … } after allowProjectedDates()
 BS_RANGE.startDate; // new Date for AD 1913-04-13 on each read
-BS_RANGE.endDate; // new Date for AD 2044-04-13 on each read
+BS_RANGE.endDate; // new Date for AD 2027-04-13 (AD 2044-04-13 after allowProjectedDates()) on each read
 ```
 
 `startDate` and `endDate` are getters that return a fresh `Date` each time, so changing one cannot
-change the range.
+change the range. `end` and `endDate` follow `allowProjectedDates()`.
+
+### `ProjectedDateError`
+
+Thrown for a date in a projected year: one whose month lengths Nepal's calendar committee has not
+published yet, so the result could be a day off. It extends `RangeError`, so existing `catch` blocks
+for `RangeError` still catch it.
+
+| Property  | Value                                                                                   |
+| --------- | --------------------------------------------------------------------------------------- |
+| `name`    | `"ProjectedDateError"`                                                                  |
+| `year`    | The projected BS year the date falls in, such as `2084`                                 |
+| `message` | Names the date, the year and the confirmed range, and points to `allowProjectedDates()` |
+
+```ts
+try {
+  bsToAd(2084, 1, 1);
+} catch (error) {
+  if (error instanceof ProjectedDateError) showMessage(`BS ${error.year} is not published yet`);
+}
+```
+
+A date past the whole table (after BS 2100) is a plain `RangeError`, even with projections on.
+
+### `allowProjectedDates(allow = true): void`
+
+Turns the projected years (`BS_DATA_INFO.projectedFrom` to `BS_DATA_INFO.lastYear`) on, or back off
+with `allowProjectedDates(false)`. The switch is global: it applies to every function and to the
+calendar in `nepali-day-picker/react`. Call it once at startup, before any calendar renders, in code
+that both the server and the browser run.
+
+```ts
+allowProjectedDates();
+bsToAd(2090, 1, 1); // a Date, from the projected table
+```
 
 ### `BS_DATA_INFO`
 
 How far each part of the data table can be trusted (see [Data accuracy](why.md#data-accuracy)).
 
-| Field                    | Value                            | Meaning                                                               |
-| ------------------------ | -------------------------------- | --------------------------------------------------------------------- |
-| `firstYear` / `lastYear` | 1970 / 2100                      | First and last BS year in the table                                   |
-| `projectedFrom`          | 2084                             | From this year on, month lengths are projections, not published dates |
-| `disputedYears`          | `[1975, 1977, 1981, 1991, 1998]` | Sources disagree about which months get the extra day                 |
-| `singleSourceYears`      | `[1970, …, 1974]`                | Only one source covers these years                                    |
+| Field                    | Value                                | Meaning                                                               |
+| ------------------------ | ------------------------------------ | --------------------------------------------------------------------- |
+| `firstYear` / `lastYear` | 1970 / 2100                          | First and last BS year in the table                                   |
+| `projectedFrom`          | 2084                                 | From this year on, month lengths are projections, not published dates |
+| `lastConfirmed`          | `{ year: 2083, month: 12, day: 30 }` | The last day with published month lengths (AD 2027-04-13)             |
+| `disputedYears`          | `[1975, 1977, 1981, 1991, 1998]`     | Sources disagree about which months get the extra day                 |
+| `singleSourceYears`      | `[1970, …, 1974]`                    | Only one source covers these years                                    |
 
 ## Formatting
 
 ### `formatBs(date: Date, pattern: Pattern, options?: FormatOptions): string`
 
-Formats a date as BS text. Throws a `RangeError` outside the supported range.
+Formats a date as BS text. Throws a `RangeError` outside the supported range and a
+`ProjectedDateError` in a projected year.
 
 ### `formatAd(date: Date, pattern: Pattern, options?: FormatOptions): string`
 
@@ -157,7 +202,8 @@ is the week of the Gregorian year.
 
 Read text written with the same tokens and presets as formatting, and return a `Date` at local
 midnight. They return `null` instead of throwing when the text does not match, the date does not
-exist, or it is outside the supported range.
+exist, or it is outside the supported range. A BS date in a projected year is `null` too, until
+`allowProjectedDates()` is called.
 
 ```ts
 parseBs("१२/०१/२०८२", "DD/MM/YYYY"); // 25 April 2025
@@ -202,7 +248,7 @@ getFiscalYear(new Date(2025, 6, 16)); // 2081 (32 Asar 2082 is the last day of F
 getFiscalYear(new Date(2025, 6, 17)); // 2082 (Shrawan 1, 2082)
 ```
 
-Throws a `RangeError` outside the supported range.
+Throws a `RangeError` outside the supported range and a `ProjectedDateError` in a projected year.
 
 ### `getFiscalPeriod(date: Date, period?: FiscalPeriod, options?: FiscalOptions): FiscalPeriodInfo`
 
@@ -226,6 +272,11 @@ getFiscalPeriodRange(2082, "quarter", 4); // Baisakh 1 to the last day of Asar 2
 Throws a `RangeError` for an unknown period, an index out of bounds (`"quarter"` takes 1–4), a
 non-integer year, or a period that reaches outside the data table. FY 1969/70 and FY 2100/01 reach
 outside it as whole years, but their periods inside the table work.
+
+Throws a `ProjectedDateError` for a period that ends in a projected year. FY 2083/84 ends on the last
+day of Asar 2084, so `getFiscalPeriodRange(2083)`, and `getFiscalPeriod` for any date in that year,
+throw until BS 2084 is confirmed or `allowProjectedDates()` is called. Its first three quarters end in
+BS 2083 and work.
 
 ### `FiscalPeriod`
 
@@ -274,6 +325,48 @@ getBsWeek(bsToAd(2082, 1, 12)); // 2
 getBsWeekOfMonth(bsToAd(2082, 1, 12)); // 2
 ```
 
+## Calendar grid
+
+### `getBsMonthGrid(year: number, month: number, options?: BsMonthGridOptions): BsMonthGrid`
+
+A BS month as plain data, to render a calendar in any framework. `month` is 1–12. The first and last
+weeks are filled with days of the neighbouring months. Throws a `RangeError` for a month outside the
+supported range and a `ProjectedDateError` for one in a projected year. Examples for Vue, Svelte and
+plain DOM are in [Build a BS month grid](guides.md#build-a-bs-month-grid).
+
+| Option         | Default      | Effect                                                                                          |
+| -------------- | ------------ | ----------------------------------------------------------------------------------------------- |
+| `weekStartsOn` | `0` (Sunday) | The first column, 0–6                                                                           |
+| `fixedWeeks`   | `false`      | Always six weeks, so the grid keeps its height                                                  |
+| `events`       | none         | `(date) => CalendarEvent[]`, such as `createEventLookup(...)` from `nepali-day-picker/holidays` |
+| `today`        | now          | The day marked `today`                                                                          |
+
+`BsMonthGrid`:
+
+| Field              | Value                                                                    |
+| ------------------ | ------------------------------------------------------------------------ |
+| `year`, `month`    | The BS month shown                                                       |
+| `daysInMonth`      | 29–32                                                                    |
+| `start`, `end`     | First and last day, local midnight; `formatBs(grid.start, "MMMM YYYY")`  |
+| `weekdays`         | Weekday numbers in column order, for `WEEKDAYS.ne.short[n]`              |
+| `weeks`            | `BsGridDay[][]`, seven days each                                         |
+| `previous`, `next` | `{ year, month }` of the months around it, or `null` at the range's ends |
+
+`BsGridDay`:
+
+| Field      | Value                                                                                                                |
+| ---------- | -------------------------------------------------------------------------------------------------------------------- |
+| `date`     | The day, local midnight                                                                                              |
+| `bs`       | `{ year, month, day }` in BS                                                                                         |
+| `ad`       | `{ year, month, day }` in AD, month 1–12                                                                             |
+| `weekday`  | 0 (Sunday) – 6                                                                                                       |
+| `outside`  | In the previous or next month                                                                                        |
+| `inRange`  | `false` before BS 1970 or past the confirmed data; only outside days at the range's ends; `bs` is then a placeholder |
+| `today`    | The `today` day                                                                                                      |
+| `saturday` | Saturday, the weekly holiday                                                                                         |
+| `holiday`  | One of `events` has `type: "holiday"`                                                                                |
+| `events`   | The day's holidays and events from the `events` option                                                               |
+
 ## Names and digits
 
 | Export                                    | Contents                                                                                      |
@@ -296,6 +389,71 @@ short forms. Month lists start at index 0 for month 1; weekday lists start with 
 | `toAsciiDigits(text: string): string`             | `toAsciiDigits("१२ बैशाख")` → `"12 बैशाख"` |
 
 Both convert digits only and leave every other character as it is.
+
+## Holidays and events
+
+```ts
+import { getPublicHolidays, parseEvents /* … */ } from "nepali-day-picker/holidays";
+```
+
+A separate entry, so the core never loads the holiday data. The calendar in `nepali-day-picker/react`
+uses it for its `holidays` and `events` props ([calendar guide](react.md#holidays-and-events)).
+
+### `CalendarEvent`
+
+One holiday or event, in the format of [`data/holidays.json`](../data/holidays.json):
+
+```ts
+interface CalendarEvent {
+  date: string | Date; // BS "YYYY-MM-DD" (Nepali digits fine), AD with calendar: "ad", or a Date
+  endDate?: string | Date; // last day of a multi-day entry, inclusive, at most 366 days
+  calendar?: "bs" | "ad"; // of date, endDate and repeat; default "bs"
+  name: string | { ne?: string; en?: string };
+  type?: "holiday" | "event"; // default "event"
+  repeat?: "yearly"; // same month and day every year, from date on; not with endDate
+  color?: string; // dot colour of an event
+  id?: string | number; // any other field is kept too
+}
+```
+
+A yearly day that a shorter month lacks (Asar 32, 29 February) falls on the month's last day.
+
+### `NEPAL_HOLIDAYS` · `HOLIDAY_YEARS`
+
+Nepal's nationwide public holidays, as `CalendarEvent`s with `type: "holiday"`, and the BS years they
+cover in full: `[2083]` for now. Holidays for a single region, community or group (Kathmandu Valley,
+Terai, women only …) are not included. See [data/SOURCES.md](../data/SOURCES.md#public-holidays).
+
+### `getPublicHolidays(date: Date): CalendarEvent[]`
+
+The nationwide public holidays on a date, usually none. Saturdays are not listed.
+
+```ts
+getPublicHolidays(new Date(2026, 8, 19)); // [Constitution Day]
+getPublicHolidays(new Date(2026, 10, 26)); // []
+```
+
+Throws a `RangeError` for a BS year outside `HOLIDAY_YEARS`, so a missing year is never read as "no
+holiday", and a `ProjectedDateError` for a projected year.
+
+### `parseEvents(input: unknown): CalendarEvent[]`
+
+Checks holidays and events from JSON or user input: an array of events, an object with an `events`
+array (the shape of `data/holidays.json`), or that JSON as text. Returns the events, or throws a
+`TypeError` that names the first bad one:
+
+```ts
+parseEvents([{ date: "2083-13-01", name: "x" }]); // TypeError: events[0].date: has no month 13
+```
+
+### `createEventLookup(events: readonly CalendarEvent[]): (date: Date) => CalendarEvent[]`
+
+Checks the events like `parseEvents` and indexes them, so each lookup is fast. The lookup returns the
+events on a date's local calendar day, as the same objects, in the order given.
+
+### `getEventName(event: CalendarEvent, lang?: Lang): string`
+
+The name in `lang` (default `"ne"`), or in the other script when that one is missing.
 
 ## Types
 

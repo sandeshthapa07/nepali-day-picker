@@ -1,4 +1,21 @@
-import { BS_RANGE } from "../src";
+import { afterAll, beforeAll } from "vitest";
+import { allowProjectedDates, BS_RANGE } from "../src";
+
+/** Lets every test in the enclosing describe block use the projected years (BS 2084-2100). */
+export function useProjectedDates(): void {
+  beforeAll(() => allowProjectedDates());
+  afterAll(() => allowProjectedDates(false));
+}
+
+/** Runs `fn` with projected dates allowed, then turns the check back on. */
+export function withProjectedDates<T>(fn: () => T): T {
+  allowProjectedDates();
+  try {
+    return fn();
+  } finally {
+    allowProjectedDates(false);
+  }
+}
 
 /** Local calendar day as "YYYY-MM-DD". */
 export function ymd(date: Date): string {

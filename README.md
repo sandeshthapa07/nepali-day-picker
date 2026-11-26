@@ -1,20 +1,30 @@
 # nepali-day-picker
 
-Bikram Sambat (BS, विक्रम संवत्) ↔ Gregorian (AD) date conversion, formatting, parsing and Nepal
-fiscal-year helpers for JavaScript and TypeScript, plus a BS calendar for react-day-picker and shadcn/ui.
+Bikram Sambat (BS, विक्रम संवत्) ↔ Gregorian (AD) date conversion, formatting, parsing, Nepal
+fiscal-year helpers and public holidays for JavaScript and TypeScript, a calendar grid for any
+framework, and a BS calendar for react-day-picker and shadcn/ui.
 
 - **Accurate:** a month-length table for BS 1970–2100, cross-checked against five other packages, with
-  a round-trip test over every one of its ~47,800 days.
+  a round-trip test over every one of its ~47,800 days. Years the calendar committee has not
+  published yet (BS 2084 on) throw a `ProjectedDateError` instead of returning a guess.
 - **Plain `Date` values:** you store, send and validate ordinary JavaScript `Date`s; BS is only how
   they are read and written.
 - **Nepali and English:** Devanagari or ASCII digits and names, everyday or formal month spellings.
-- **Small and dependency-free:** about 5 kB minified and brotli-compressed for the core, 1.8 kB for
-  just `adToBs` and `bsToAd`, and 5 kB for the calendar on top of react-day-picker. ESM and CommonJS,
-  with TypeScript types. Tree-shakeable.
+- **Small and dependency-free:** about 5.9 kB minified and brotli-compressed for the whole core,
+  1.4 kB for just `adToBs` and `bsToAd`, and 7.9 kB for the calendar on top of react-day-picker,
+  holiday data included. The core never loads React or the holiday data, and the other entries share
+  its code instead of copying it, in both the ESM and the CommonJS build. TypeScript types.
+  Tree-shakeable.
 - **Time-zone safe:** tested in seven time zones, including Asia/Kathmandu (UTC+5:45).
 
+- **Any framework:** the core has no dependencies, and `getBsMonthGrid` gives a BS month as plain data
+  to render in Vue, Svelte, Angular or plain DOM.
 - **A calendar for react-day-picker and shadcn/ui:** BS months in the calendar you already use, with
   four display modes, in `nepali-day-picker/react`.
+- **Holidays and events:** Nepal's nationwide public holidays in red, from
+  [`data/holidays.json`](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/data/holidays.json)
+  (BS 2083 for now), and your own holidays and events, any number at once, in the same JSON format.
+  See [Holidays and events](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/docs/react.md#holidays-and-events).
 
 ![Three shadcn calendars: a Nepali BS month, a BS month with AD days underneath, and an AD month with BS days underneath](https://raw.githubusercontent.com/sandeshthapa07/nepali-day-picker/main/docs/images/calendars.png)
 
@@ -58,6 +68,21 @@ import "react-day-picker/style.css";
 
 `variant` is `"bs"` (default), `"bs-ad"`, `"ad-bs"` or `"ad"`. The selected value is a plain `Date`.
 
+**Holidays and events:** Nepal's nationwide public holidays and Saturdays show in red with no setup.
+Add your own holidays and events in bulk, in the format of [`data/holidays.json`](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/data/holidays.json):
+
+```tsx
+const events = [
+  { date: "2083-08-15", name: "Office party" }, // a dot under the day
+  { date: "2083-09-01", name: "Company holiday", type: "holiday" }, // red, like a public holiday
+  { date: "2055-02-05", name: "Sita's birthday", repeat: "yearly" }, // every year on 5 Jestha
+];
+<DayPicker mode="single" selected={date} onSelect={setDate} events={events} />;
+```
+
+Read JSON from a file or an API with `parseEvents(json)`, which checks every entry. Turn the built-in
+list off with `holidays={false}`.
+
 **shadcn/ui:** in `components/ui/calendar.tsx`, import from `nepali-day-picker/react` instead of
 `react-day-picker` and delete the default `formatMonthDropdown`. Your `<Calendar />` then takes the same
 props. To avoid editing the file, spread `useNepaliCalendar({ DayButton: CalendarDayButton })` into it.
@@ -66,8 +91,8 @@ See the [calendar guide](https://github.com/sandeshthapa07/nepali-day-picker/blo
 ## Documentation
 
 - [Getting started](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/docs/getting-started.md): install, convert, format and parse in five minutes
-- [Calendar for react-day-picker and shadcn/ui](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/docs/react.md): variants, props, shadcn setup, a date picker
-- [Guides and recipes](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/docs/guides.md): forms, Zod, databases and APIs, servers in UTC, fiscal-year reports, a BS month grid
+- [Calendar for react-day-picker and shadcn/ui](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/docs/react.md): variants, props, shadcn setup, holidays and events, future dates, a date picker
+- [Guides and recipes](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/docs/guides.md): forms, Zod, databases and APIs, servers in UTC, fiscal-year reports, future dates, a BS month grid for Vue, Svelte or plain DOM
 - [API reference](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/docs/api.md): every function, option and token
 - [Why nepali-day-picker](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/docs/why.md): benefits, data accuracy, limits and FAQ
 - [Contributing](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/CONTRIBUTING.md): report a wrong date, set up, release
@@ -77,9 +102,13 @@ See the [calendar guide](https://github.com/sandeshthapa07/nepali-day-picker/blo
 - BS months are numbered 1–12, Baisakh = 1.
 - A `Date` stands for its **local calendar day**; the time of day is ignored. `bsToAd` returns local
   midnight.
-- Supported range: **BS 1970-01-01 to BS 2100-12-31** (AD 1913-04-13 to AD 2044-04-13). Outside it,
-  `adToBs`, `bsToAd` and `formatBs` throw a `RangeError` that names the range. `parseBs` returns
-  `null` and never throws.
+- Supported range: **BS 1970-01-01 to BS 2083-12-30** (AD 1913-04-13 to AD 2027-04-13), the years
+  with published month lengths. Outside it, `adToBs`, `bsToAd` and `formatBs` throw a `RangeError`
+  that names the range. `parseBs` returns `null` and never throws.
+- **Future years are not fixed yet.** Nepal's calendar committee has not published BS 2084 onward, so
+  a date there throws a `ProjectedDateError` (a `RangeError`). If an estimate that can be a day off
+  is acceptable, call `allowProjectedDates()` once at startup to open the table's projections up to
+  BS 2100 (AD 2044-04-13). See [Projected years](#projected-years).
 - `lang` defaults to `"ne"` (Devanagari names and digits). Pass `{ lang: "en" }` for English.
 
 ## API
@@ -94,6 +123,8 @@ See the [calendar guide](https://github.com/sandeshthapa07/nepali-day-picker/blo
 | `isValidBs(year, month, day)`                                | `true` if the date exists and is in range                                              |
 | `BS_RANGE`                                                   | `start` and `end` as BS dates; `startDate` and `endDate` as new `Date`s on each read   |
 | `BS_DATA_INFO`                                               | Which years are projected, disputed or single-source ([Data accuracy](#data-accuracy)) |
+| `allowProjectedDates(allow?)`                                | Accept dates in projected years (BS 2084–2100); `false` turns the check back on        |
+| `ProjectedDateError`                                         | The error thrown for a projected date; has `year`, extends `RangeError`                |
 
 ### Formatting
 
@@ -198,6 +229,31 @@ years.
 | `toNepaliDigits(value)`, `toAsciiDigits(text)` | Converts between ०–९ and 0–9                                                     |
 | `FORMAT_PRESETS`                               | The preset patterns                                                              |
 
+### Calendar grid, for any framework
+
+`getBsMonthGrid(year, month, options?)` returns a BS month as plain data: weeks of days, each with its
+`Date`, BS and AD dates, and `outside`, `today`, `saturday`, `holiday` and `events` flags, plus links
+to the previous and next month. Render it in Vue, Svelte, Angular or plain DOM; see
+[Build a BS month grid](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/docs/guides.md#build-a-bs-month-grid).
+
+```ts
+const grid = getBsMonthGrid(2083, 8, { events: createEventLookup(NEPAL_HOLIDAYS) });
+grid.weeks.map((week) => week.map((day) => (day.outside ? "" : day.bs.day)));
+```
+
+### Holidays and events (`nepali-day-picker/holidays`)
+
+A separate entry: the core never loads the holiday data.
+
+| Export                      | What it is                                                                                                                               |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `NEPAL_HOLIDAYS`            | Nationwide public holidays from [`data/holidays.json`](https://github.com/sandeshthapa07/nepali-day-picker/blob/main/data/holidays.json) |
+| `HOLIDAY_YEARS`             | The BS years they cover: `[2083]` for now                                                                                                |
+| `getPublicHolidays(date)`   | The public holidays on a date; throws for a year without data, so "no data" ≠ "no holiday"                                               |
+| `parseEvents(input)`        | Checks holidays and events in that JSON format (array, `{ events }` or JSON text)                                                        |
+| `createEventLookup(events)` | Indexes events once; `lookup(date)` returns what is on that day                                                                          |
+| `getEventName(event, lang)` | The event's name in `"ne"` or `"en"`, falling back to the other                                                                          |
+
 ## Data accuracy
 
 BS month lengths are set each year by Nepal's calendar committee, so they come from a table, not a
@@ -206,13 +262,39 @@ formula. This package's table was built by comparing five open-source tables yea
 
 - **BS 2000–2083:** all five sources agree on every month. New years 2070–2083 and well-known
   national dates are tested.
-- **BS 2084–2100:** projected; the committee has not published these years. Values may change in a
-  patch release.
+- **BS 2084–2100:** projected; the committee has not published these years. They are off unless you
+  call `allowProjectedDates()`, and values may change in a patch release.
 - **BS 1970–1999:** five years (1975, 1977, 1981, 1991, 1998) have sources that disagree about
   which months get the extra day, and 1970–1974 have only one source.
 
-`BS_DATA_INFO` exposes these lists, so an app can warn about projected dates. Corrections are
-welcome as issues with a source.
+`BS_DATA_INFO` exposes these lists. Corrections are welcome as issues with a source.
+
+### Projected years
+
+Every function that needs month lengths throws a `ProjectedDateError` for a date in BS 2084 or later:
+`adToBs`, `bsToAd`, `getBsMonthLength`, `formatBs`, the week helpers and the fiscal helpers. `isValidBs`
+returns `false` and `parseBs` returns `null`. In the calendar, navigation ends with Chaitra 2083, and
+`DayPicker` throws when its `selected`, `month` or `defaultMonth` is past it.
+
+```ts
+import { adToBs, allowProjectedDates, ProjectedDateError } from "nepali-day-picker";
+
+try {
+  adToBs(new Date(2027, 4, 1));
+} catch (error) {
+  if (error instanceof ProjectedDateError) {
+    // "AD 2027-05-01 falls in BS 2084, whose month lengths are not published yet. …"
+    console.log(error.year); // 2084
+  }
+}
+
+// Planning far ahead and a possible one-day error is fine? Turn projections on, once, at startup:
+allowProjectedDates();
+adToBs(new Date(2027, 4, 1)); // { year: 2084, month: 1, day: 18 }
+```
+
+When the committee publishes a year, a patch release moves it into the confirmed range, so keep the
+package up to date. A fiscal year ending in Asar 2084 (FY 2083/84) also counts as projected until then.
 
 ## Time zones
 

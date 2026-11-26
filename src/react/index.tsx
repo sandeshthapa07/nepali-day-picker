@@ -7,23 +7,26 @@ import {
   type Labels,
   type Matcher,
   type ModifiersClassNames,
+  type ModifiersStyles,
   CaptionLabel as RdpCaptionLabel,
   DayButton as RdpDayButton,
   DayPicker as RdpDayPicker,
   type DayPickerProps as RdpDayPickerProps,
 } from "react-day-picker";
-import { BS_RANGE, dayNumberFromDate, LAST_DAY_NUMBER } from "../core/convert";
+import { adText, assertDayNumber, BS_RANGE, dayNumberFromDate, lastDayNumber } from "../core/convert";
 import { toNepaliDigits } from "../core/digits";
 import { createFormatterWith } from "../core/format";
 import { looseAdToBs, looseBsToAd, looseBsWeek, looseMonthLength } from "../core/loose";
 import { AD_MONTHS, BS_MONTHS, WEEKDAYS } from "../core/names";
 import type { Lang, Pattern } from "../core/pattern";
 import { createBsDateLib, type DateLibOverrides } from "../date-lib";
+import { type CalendarEvent, createEventLookup, type EventLookup, getEventName, getHolidayLookup } from "../holidays";
 
 // Everything from react-day-picker, so this entry can replace it in an import (shadcn's calendar.tsx).
 // The DayPicker and DayPickerProps declared below take precedence over the re-exported ones.
 export * from "react-day-picker";
 export { type BsDateLibOptions, createBsDateLib, type DateLibOverrides, getBsDateLib } from "../date-lib";
+export { type CalendarEvent, parseEvents } from "../holidays";
 
 /**
  * Which calendar lays out the grid, and whether each day also shows the other calendar's date.
@@ -51,6 +54,19 @@ export interface NepaliCalendarOptions {
   labelFormat?: Pattern;
   /** Weekday header: `"dd"` (शु, Fr), `"ddd"` (शुक्र, Fri) or `"dddd"` (शुक्रबार, Friday). Default `"ddd"`. */
   weekdayFormat?: "dd" | "ddd" | "dddd";
+  /**
+   * Shows Nepal's nationwide public holidays (built in, from `data/holidays.json`; BS 2083 for now) in
+   * red, with their names in each day's label. Default `true`.
+   */
+  holidays?: boolean;
+  /**
+   * Your own holidays and events, any number at once, in the `data/holidays.json` format. A
+   * `type: "holiday"` day shows in red; an event adds a dot under the day. Keep the array stable
+   * (a constant, state or `useMemo`), since a new array re-indexes it.
+   */
+  events?: readonly CalendarEvent[];
+  /** Text colour of holidays and Saturdays, or `false` to leave it to your CSS. Default `"#dc2626"`. */
+  holidayColor?: string | false;
 }
 
 /** A day button component, such as react-day-picker's `DayButton` or shadcn's `CalendarDayButton`. */
@@ -59,7 +75,10 @@ export type DayButtonComponent = CustomComponents["DayButton"];
 export type CaptionLabelComponent = CustomComponents["CaptionLabel"];
 
 export interface UseNepaliCalendarOptions extends NepaliCalendarOptions {
-  /** The day button to wrap with the secondary date, such as shadcn's `CalendarDayButton`. */
+  /**
+   * The day button to wrap with the secondary date, event dots and holiday names on hover, such as
+   * shadcn's `CalendarDayButton`.
+   */
   DayButton?: DayButtonComponent;
   /** The caption label to wrap in the dual variants. Default: react-day-picker's `CaptionLabel`. */
   CaptionLabel?: CaptionLabelComponent;
@@ -76,7 +95,11 @@ export interface NepaliCalendarProps {
   endMonth: Date | undefined;
   modifiers: Record<string, Matcher | Matcher[]>;
   modifiersClassNames: ModifiersClassNames;
+  modifiersStyles: ModifiersStyles;
 }
+
+/** Default text colour of holidays and Saturdays (Tailwind's red-600). */
+export const HOLIDAY_COLOR = "#dc2626";
 
 const TEXT = {
   ne: {
@@ -101,9 +124,10 @@ const TEXT = {
 
 const WEEKDAY_WIDTH = { dd: "narrow", ddd: "short", dddd: "long" } as const;
 
+/** True for a day with BS data the calendar may show: confirmed, or projected after allowProjectedDates(). */
 const isInRange = (date: Date) => {
   const n = dayNumberFromDate(date);
-  return n >= 0 && n <= LAST_DAY_NUMBER;
+  return n >= 0 && n <= lastDayNumber();
 };
 
 function formatter(
@@ -133,6 +157,63 @@ function spanText(start: Date, end: Date, calendar: "bs" | "ad", lang: Lang): st
   return m1 === m2 ? `${m1} ${y1}` : `${m1}–${m2} ${y1}`;
 }
 
+interface DecorateOptions {
+  /** Show the other calendar's day number under the main one. */
+  secondary?: { calendar: "bs" | "ad"; lang: Lang; digits: Lang };
+  /** Holidays and events: events add dots, and every name goes into the button's `title`. */
+  lookup?: EventLookup;
+  /** Script of the names in the `title`. */
+  lang?: Lang;
+}
+
+const MAX_DOTS = 3;
+const DOTS_STYLE: React.CSSProperties = { display: "flex", gap: "2px", justifyContent: "center", height: "4px" };
+const DOT_STYLE: React.CSSProperties = { width: "4px", height: "4px", borderRadius: "50%" };
+
+/** Wraps a day button with the secondary date, event dots and a `title` of the day's names. */
+function decorateDayButton(DayButton: DayButtonComponent, options: DecorateOptions, label: string): DayButtonComponent {
+  const { secondary, lookup, lang = "ne" } = options;
+  const styled = DayButton === RdpDayButton;
+  function NepaliDayButton(props: DayButtonProps) {
+    const date = props.day.date;
+    let text: string | undefined;
+    if (secondary) {
+      if (secondary.calendar === "ad") text = String(date.getDate());
+      else if (isInRange(date)) text = String(looseAdToBs(date).day);
+      if (text !== undefined && secondary.digits === "ne") text = toNepaliDigits(text);
+    }
+    const entries = lookup ? lookup(date) : [];
+    const dots = entries.filter((e) => e.type !== "holiday").slice(0, MAX_DOTS);
+    const title = entries.length > 0 ? entries.map((e) => getEventName(e, lang)).join(", ") : undefined;
+    const column = styled && (text !== undefined || dots.length > 0);
+    return (
+      <DayButton
+        {...props}
+        title={props.title ?? title}
+        style={column ? { flexDirection: "column", lineHeight: 1.1, ...props.style } : props.style}
+      >
+        {props.children}
+        {text !== undefined && (
+          <span data-secondary-date="" style={styled ? { fontSize: "0.7em", opacity: 0.7 } : undefined}>
+            {text}
+          </span>
+        )}
+        {dots.length > 0 && (
+          <span data-events={dots.length} aria-hidden="true" style={DOTS_STYLE}>
+            {dots.map((event, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: the dots are a fixed, unordered set.
+              <span key={i} style={{ ...DOT_STYLE, background: event.color ?? "currentColor" }} />
+            ))}
+          </span>
+        )}
+      </DayButton>
+    );
+  }
+  const inner = DayButton as { displayName?: string; name?: string };
+  NepaliDayButton.displayName = `${label}(${inner.displayName ?? inner.name ?? "DayButton"})`;
+  return NepaliDayButton;
+}
+
 /**
  * Wraps a day button so it shows the other calendar's day number under the main one, in a `<span>`.
  * shadcn's `CalendarDayButton` already styles that span small and faded; with react-day-picker's own
@@ -143,27 +224,7 @@ export function withSecondaryDate(
   options: { calendar: "bs" | "ad"; lang?: Lang; digits?: Lang },
 ): DayButtonComponent {
   const { calendar, lang = "ne", digits = lang } = options;
-  const styled = DayButton === RdpDayButton;
-  function SecondaryDateDayButton(props: DayButtonProps) {
-    const date = props.day.date;
-    let text: string | undefined;
-    if (calendar === "ad") text = String(date.getDate());
-    else if (isInRange(date)) text = String(looseAdToBs(date).day);
-    if (text !== undefined && digits === "ne") text = toNepaliDigits(text);
-    return (
-      <DayButton {...props} style={styled ? { flexDirection: "column", lineHeight: 1.1, ...props.style } : props.style}>
-        {props.children}
-        {text !== undefined && (
-          <span data-secondary-date="" style={styled ? { fontSize: "0.7em", opacity: 0.7 } : undefined}>
-            {text}
-          </span>
-        )}
-      </DayButton>
-    );
-  }
-  const inner = DayButton as { displayName?: string; name?: string };
-  SecondaryDateDayButton.displayName = `withSecondaryDate(${inner.displayName ?? inner.name ?? "DayButton"})`;
-  return SecondaryDateDayButton;
+  return decorateDayButton(DayButton, { secondary: { calendar, lang, digits } }, "withSecondaryDate");
 }
 
 /** Separates the main caption from the other calendar's months in the dual variants' captions. */
@@ -213,6 +274,9 @@ export function createNepaliCalendar(options: UseNepaliCalendarOptions = {}): Ne
     captionFormat = "MMMM YYYY",
     labelFormat = "full",
     weekdayFormat = "ddd",
+    holidays = true,
+    events,
+    holidayColor = HOLIDAY_COLOR,
     DayButton,
     CaptionLabel,
   } = options;
@@ -249,9 +313,17 @@ export function createNepaliCalendar(options: UseNepaliCalendarOptions = {}): Ne
     formatWeekNumber: (weekNumber) => num(weekNumber),
   };
 
+  // Built-in holidays first, then the app's own holidays and events. Checked here, once.
+  const builtIn = holidays ? getHolidayLookup() : undefined;
+  const own = events && events.length > 0 ? createEventLookup(events) : undefined;
+  const lookup: EventLookup | undefined =
+    builtIn && own ? (date) => [...builtIn(date), ...own(date)] : (builtIn ?? own);
+
   const fullLabel = (date: Date, today?: boolean) => {
     let label = dayLabel(date);
     if (secondaryLabel && (secondary === "ad" || isInRange(date))) label += ` (${secondaryLabel(date)})`;
+    const names = lookup ? lookup(date).map((e) => getEventName(e, lang)) : [];
+    if (names.length > 0) label += `, ${names.join(", ")}`;
     return today ? `${text.today}, ${label}` : label;
   };
 
@@ -269,13 +341,36 @@ export function createNepaliCalendar(options: UseNepaliCalendarOptions = {}): Ne
   };
 
   const components: Partial<CustomComponents> = {};
-  if (secondary) {
-    components.DayButton = withSecondaryDate(DayButton, { calendar: secondary, lang: secondaryLang });
-    components.CaptionLabel = withSecondaryCaption(CaptionLabel);
-  } else {
-    if (DayButton) components.DayButton = DayButton;
-    if (CaptionLabel) components.CaptionLabel = CaptionLabel;
+  // Wrap the day button when there is something to add to it. Without a DayButton of the caller's, only
+  // when needed: in a spread into shadcn's <Calendar />, ours would replace shadcn's own button.
+  const hasDots = events?.some((e) => e.type !== "holiday") ?? false;
+  if (secondary || (lookup && (DayButton || hasDots))) {
+    components.DayButton = decorateDayButton(
+      DayButton ?? RdpDayButton,
+      {
+        secondary: secondary && { calendar: secondary, lang: secondaryLang, digits: secondaryLang },
+        lookup,
+        lang,
+      },
+      secondary ? "withSecondaryDate" : "withEvents",
+    );
+  } else if (DayButton) {
+    components.DayButton = DayButton;
   }
+  if (secondary) components.CaptionLabel = withSecondaryCaption(CaptionLabel);
+  else if (CaptionLabel) components.CaptionLabel = CaptionLabel;
+
+  const modifiers: Record<string, Matcher | Matcher[]> = { saturday: { dayOfWeek: [6] } };
+  const modifiersClassNames: ModifiersClassNames = { saturday: "ndp-saturday" };
+  if (lookup) {
+    modifiers.holiday = (date: Date) => lookup(date).some((e) => e.type === "holiday");
+    modifiers.event = (date: Date) => lookup(date).some((e) => e.type !== "holiday");
+    modifiersClassNames.holiday = "ndp-holiday";
+    modifiersClassNames.event = "ndp-event";
+  }
+  // On the cell, so the day number inherits it, and shadcn's selected day keeps its own text colour.
+  const red = holidayColor === false ? undefined : { color: holidayColor };
+  const modifiersStyles: ModifiersStyles = red ? { saturday: red, ...(lookup ? { holiday: red } : {}) } : {};
 
   let startMonth: Date | undefined;
   let endMonth: Date | undefined;
@@ -296,8 +391,9 @@ export function createNepaliCalendar(options: UseNepaliCalendarOptions = {}): Ne
     weekStartsOn: 0,
     startMonth,
     endMonth,
-    modifiers: { saturday: { dayOfWeek: [6] } },
-    modifiersClassNames: { saturday: "ndp-saturday" },
+    modifiers,
+    modifiersClassNames,
+    modifiersStyles,
   };
 }
 
@@ -320,9 +416,14 @@ export function useNepaliCalendar(options: UseNepaliCalendarOptions = {}): Nepal
     captionFormat,
     labelFormat,
     weekdayFormat,
+    holidays,
+    events,
+    holidayColor,
     DayButton,
     CaptionLabel,
   } = options;
+  const end = lastDayNumber(); // changes with allowProjectedDates()
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `end` is module state read inside createNepaliCalendar.
   return React.useMemo(
     () =>
       createNepaliCalendar({
@@ -334,6 +435,9 @@ export function useNepaliCalendar(options: UseNepaliCalendarOptions = {}): Nepal
         captionFormat,
         labelFormat,
         weekdayFormat,
+        holidays,
+        events,
+        holidayColor,
         DayButton,
         CaptionLabel,
       }),
@@ -346,27 +450,88 @@ export function useNepaliCalendar(options: UseNepaliCalendarOptions = {}): Nepal
       captionFormat,
       labelFormat,
       weekdayFormat,
+      holidays,
+      events,
+      holidayColor,
       DayButton,
       CaptionLabel,
+      end,
     ],
   );
+}
+
+/** The Dates in a `selected` value: a Date, a Date[] or a { from, to } range. Invalid Dates are skipped. */
+function datesIn(value: unknown): Date[] {
+  const list = Array.isArray(value)
+    ? value
+    : value && typeof value === "object" && !(value instanceof Date)
+      ? [(value as { from?: unknown }).from, (value as { to?: unknown }).to]
+      : [value];
+  return list.filter((d): d is Date => d instanceof Date && !Number.isNaN(d.getTime()));
+}
+
+/**
+ * Throws when DayPicker is handed a date past the BS data it may use: a ProjectedDateError for a
+ * projected year (until allowProjectedDates()), a RangeError past the table. Dates before the table are
+ * left alone, as before.
+ */
+function assertNotPastEnd(props: RdpDayPickerProps, main: "bs" | "ad", endMonth: Date | undefined): void {
+  const check = (prop: string, date: Date, isPast: boolean) => {
+    const n = dayNumberFromDate(date);
+    if (isPast) assertDayNumber(n, `DayPicker's ${prop} date, ${adText(n)},`);
+  };
+  const last = lastDayNumber();
+  for (const date of datesIn((props as { selected?: unknown }).selected)) {
+    check("selected", date, dayNumberFromDate(date) > last);
+  }
+  for (const prop of ["month", "defaultMonth"] as const) {
+    const date = datesIn(props[prop])[0];
+    if (!date) continue;
+    // In "ad-bs" the grid shows whole AD months, so a month is past the end only after endMonth's.
+    const past =
+      main === "bs"
+        ? dayNumberFromDate(date) > last
+        : endMonth !== undefined && new Date(date.getFullYear(), date.getMonth(), 1) > endMonth;
+    check(prop, date, past);
+  }
 }
 
 /** react-day-picker's props plus the Nepali calendar options. */
 export type DayPickerProps = RdpDayPickerProps & NepaliCalendarOptions;
 
+/** The earlier of two optional Dates; undefined only when both are. */
+const earlier = (a: Date | undefined, b: Date | undefined) => (a && b ? (a < b ? a : b) : (a ?? b));
+
 /**
  * react-day-picker's DayPicker, showing BS months by default. Every other prop works as in
  * react-day-picker, and selected values are plain `Date`s.
+ *
+ * In every variant but `"ad"`, navigation ends with the last month of confirmed BS data, an `endMonth`
+ * past it is cut back, and a `selected`, `month` or `defaultMonth` date in a projected year throws a
+ * `ProjectedDateError` (see `allowProjectedDates`).
  *
  * ```tsx
  * <DayPicker mode="single" selected={date} onSelect={setDate} variant="bs-ad" lang="ne" />
  * ```
  */
 export function DayPicker(props: DayPickerProps): React.ReactElement {
-  const { variant, lang, secondaryLang, digits, monthNames, captionFormat, labelFormat, weekdayFormat, ...rest } =
-    props;
+  const {
+    variant,
+    lang,
+    secondaryLang,
+    digits,
+    monthNames,
+    captionFormat,
+    labelFormat,
+    weekdayFormat,
+    holidays,
+    events,
+    holidayColor,
+    ...rest
+  } = props;
   const dayPickerProps = rest as RdpDayPickerProps;
+  const usesBs = variant !== "ad";
+  const main = variant === "ad" || variant === "ad-bs" ? "ad" : "bs";
   const calendar = useNepaliCalendar({
     variant,
     lang,
@@ -376,21 +541,39 @@ export function DayPicker(props: DayPickerProps): React.ReactElement {
     captionFormat,
     labelFormat,
     weekdayFormat,
-    DayButton: dayPickerProps.components?.DayButton,
+    holidays,
+    events,
+    holidayColor,
+    // Always a button to wrap, so holiday and event names show on hover.
+    DayButton: dayPickerProps.components?.DayButton ?? RdpDayButton,
     CaptionLabel: dayPickerProps.components?.CaptionLabel,
   });
+  let endMonth = dayPickerProps.endMonth ?? calendar.endMonth;
+  let disabled = dayPickerProps.disabled;
+  if (usesBs) {
+    endMonth = earlier(endMonth, calendar.endMonth);
+    assertNotPastEnd(dayPickerProps, main, endMonth);
+    // A BS grid hides the days after endMonth. An AD grid shows the whole last month, so disable the
+    // days in it that have no BS data yet.
+    if (main === "ad") {
+      const after = { after: BS_RANGE.endDate };
+      disabled = disabled === undefined ? after : [after, ...(Array.isArray(disabled) ? disabled : [disabled])];
+    }
+  }
   return (
     <RdpDayPicker
       weekStartsOn={calendar.weekStartsOn}
       startMonth={calendar.startMonth}
-      endMonth={calendar.endMonth}
       {...dayPickerProps}
+      endMonth={endMonth}
+      disabled={disabled}
       dateLib={dayPickerProps.dateLib ?? calendar.dateLib}
       formatters={{ ...calendar.formatters, ...dayPickerProps.formatters }}
       labels={{ ...calendar.labels, ...dayPickerProps.labels }}
       components={{ ...dayPickerProps.components, ...calendar.components }}
       modifiers={{ ...calendar.modifiers, ...dayPickerProps.modifiers }}
       modifiersClassNames={{ ...calendar.modifiersClassNames, ...dayPickerProps.modifiersClassNames }}
+      modifiersStyles={{ ...calendar.modifiersStyles, ...dayPickerProps.modifiersStyles }}
     />
   );
 }
